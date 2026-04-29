@@ -8,13 +8,18 @@ from src.database.spreadsheet_source import SpreadsheetSource
 from src.utils.config import PROJECT_ROOT
 
 
-def _build_settings(file_path: Path) -> dict:
+def _build_settings(
+    file_path: Path,
+    sheet_name: str | None = "Sheet1",
+    smiles_column: str = "smiles",
+    access_code_column: str = "access_code",
+) -> dict:
     return {
         "input": {
             "file_path": str(file_path),
-            "sheet_name": "Sheet1",
-            "smiles_column": "smiles",
-            "access_code_column": "access_code",
+            "sheet_name": sheet_name,
+            "smiles_column": smiles_column,
+            "access_code_column": access_code_column,
         }
     }
 
@@ -43,7 +48,7 @@ def test_load_records_from_csv() -> None:
     shutil.rmtree(tmp_path, ignore_errors=True)
 
 
-def test_load_records_from_xlsx(monkeypatch) -> None:
+def test_load_records_from_xlsx_uses_configured_sheet_without_dialog(monkeypatch) -> None:
     tmp_path = _test_dir()
     source_file = tmp_path / "molecules.xlsx"
     pd.DataFrame(
@@ -53,12 +58,57 @@ def test_load_records_from_xlsx(monkeypatch) -> None:
     ).to_excel(source_file, index=False, sheet_name="Sheet1")
 
     source = SpreadsheetSource(_build_settings(source_file))
-    selections = iter(["Sheet1", "smiles", "access_code"])
-    monkeypatch.setattr(SpreadsheetSource, "_select_column_dialog", lambda self, *args: next(selections))
+    monkeypatch.setattr(
+        SpreadsheetSource,
+        "_select_column_dialog",
+        lambda self, *args: (_ for _ in ()).throw(AssertionError("dialog should not be used")),
+    )
     records = source.load_records()
 
     assert len(records) == 1
     assert records[0].smiles == "CC(=O)O"
+    shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_load_records_from_xlsx_blank_sheet_uses_first_sheet() -> None:
+    tmp_path = _test_dir()
+    source_file = tmp_path / "molecules.xlsx"
+    with pd.ExcelWriter(source_file) as writer:
+        pd.DataFrame([{"access_code": "CMPD_020", "smiles": "CCO"}]).to_excel(
+            writer,
+            index=False,
+            sheet_name="First",
+        )
+        pd.DataFrame([{"access_code": "CMPD_021", "smiles": "CCN"}]).to_excel(
+            writer,
+            index=False,
+            sheet_name="Second",
+        )
+
+    source = SpreadsheetSource(_build_settings(source_file, sheet_name=None))
+    records = source.load_records()
+
+    assert [record.access_code for record in records] == ["CMPD_020"]
+    shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_load_records_from_semicolon_csv() -> None:
+    tmp_path = _test_dir()
+    source_file = tmp_path / "molecules.csv"
+    source_file.write_text("compound_id;structure\nCMPD_030;CCO\nCMPD_031;CCN\n", encoding="utf-8")
+
+    source = SpreadsheetSource(
+        _build_settings(
+            source_file,
+            sheet_name=None,
+            smiles_column="structure",
+            access_code_column="compound_id",
+        )
+    )
+    records = source.load_records()
+
+    assert [record.access_code for record in records] == ["CMPD_030", "CMPD_031"]
+    assert [record.smiles for record in records] == ["CCO", "CCN"]
     shutil.rmtree(tmp_path, ignore_errors=True)
 
 

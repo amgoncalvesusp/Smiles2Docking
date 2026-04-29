@@ -34,12 +34,14 @@ class SpreadsheetSource:
             records = self._read_smiles_lines(file_path)
         elif suffix in {".csv", ".tsv"}:
             frame = self._read_delimited_table(file_path)
-            smiles_column = self._detect_smiles_column(frame)
-            access_code_column = self._detect_id_column(frame)
+            smiles_column = self._resolve_configured_or_detect_smiles_column(frame)
+            access_code_column = self._resolve_configured_or_detect_id_column(frame)
             records = self._records_from_frame(frame, smiles_column, access_code_column)
         elif suffix in {".xls", ".xlsx"}:
-            sheet_name, smiles_column, access_code_column = self._select_excel_input(file_path)
+            sheet_name = self._resolve_excel_sheet(file_path)
             frame = self._read_excel_table(file_path, sheet_name)
+            smiles_column = self._resolve_configured_or_detect_smiles_column(frame)
+            access_code_column = self._resolve_configured_or_detect_id_column(frame)
             records = self._records_from_frame(frame, smiles_column, access_code_column)
         else:
             raise SpreadsheetSourceError(
@@ -112,11 +114,27 @@ class SpreadsheetSource:
     def _read_delimited_table(self, file_path: Path) -> pd.DataFrame:
         suffix = file_path.suffix.lower()
         if suffix == ".csv":
-            return pd.read_csv(file_path)
-        return pd.read_csv(file_path, sep="\t")
+            return pd.read_csv(file_path, sep=None, engine="python", dtype=str, keep_default_na=False)
+        return pd.read_csv(file_path, sep="\t", dtype=str, keep_default_na=False)
 
     def _read_excel_table(self, file_path: Path, sheet_name: str) -> pd.DataFrame:
-        return pd.read_excel(file_path, sheet_name=sheet_name)
+        return pd.read_excel(file_path, sheet_name=sheet_name, dtype=str, keep_default_na=False)
+
+    def _resolve_configured_or_detect_smiles_column(self, frame: pd.DataFrame) -> str:
+        configured = str(self.settings["input"].get("smiles_column", "")).strip()
+        if configured:
+            resolved = self._try_resolve_column(frame, configured)
+            if resolved is not None:
+                return resolved
+        return self._detect_smiles_column(frame)
+
+    def _resolve_configured_or_detect_id_column(self, frame: pd.DataFrame) -> str | None:
+        configured = str(self.settings["input"].get("access_code_column", "")).strip()
+        if configured:
+            resolved = self._try_resolve_column(frame, configured)
+            if resolved is not None:
+                return resolved
+        return self._detect_id_column(frame)
 
     def _detect_smiles_column(self, frame: pd.DataFrame) -> str:
         candidates = [
@@ -145,40 +163,36 @@ class SpreadsheetSource:
         return None
 
     def _resolve_column(self, frame: pd.DataFrame, desired_name: str) -> str:
+        resolved = self._try_resolve_column(frame, desired_name)
+        if resolved is not None:
+            return resolved
+        available = ", ".join(map(str, frame.columns))
+        raise SpreadsheetSourceError(
+            f"Column '{desired_name}' not found. Available columns: {available}"
+        )
+
+    def _try_resolve_column(self, frame: pd.DataFrame, desired_name: str) -> str | None:
         normalized = {str(column).strip().lower(): column for column in frame.columns}
         key = desired_name.strip().lower()
-        if key not in normalized:
-            available = ", ".join(map(str, frame.columns))
-            raise SpreadsheetSourceError(
-                f"Column '{desired_name}' not found. Available columns: {available}"
-            )
-        return str(normalized[key])
+        if key in normalized:
+            return str(normalized[key])
+        return None
 
-    def _select_excel_input(self, file_path: Path) -> tuple[str, str, str]:
+    def _resolve_excel_sheet(self, file_path: Path) -> str:
         workbook = pd.ExcelFile(file_path)
         if not workbook.sheet_names:
             raise SpreadsheetSourceError(f"Excel file has no sheets: {file_path}")
 
-        sheet_name = self._select_column_dialog(
-            "Select Excel sheet",
-            "Select the worksheet to load:",
-            workbook.sheet_names,
-        )
-        preview = pd.read_excel(file_path, sheet_name=sheet_name, nrows=0)
-        columns = [str(column) for column in preview.columns]
-        if not columns:
-            raise SpreadsheetSourceError(f"Excel sheet '{sheet_name}' has no header columns.")
-        smiles_column = self._select_column_dialog(
-            "Select SMILES column",
-            "Select the SMILES column:",
-            columns,
-        )
-        access_code_column = self._select_column_dialog(
-            "Select ID column",
-            "Select the molecule ID column:",
-            columns,
-        )
-        return sheet_name, smiles_column, access_code_column
+        configured = str(self.settings["input"].get("sheet_name") or "").strip()
+        if not configured:
+            return str(workbook.sheet_names[0])
+
+        normalized = {str(sheet).strip().lower(): str(sheet) for sheet in workbook.sheet_names}
+        key = configured.lower()
+        if key in normalized:
+            return normalized[key]
+        available = ", ".join(map(str, workbook.sheet_names))
+        raise SpreadsheetSourceError(f"Excel sheet '{configured}' not found. Available sheets: {available}")
 
     def _select_column_dialog(self, title: str, label: str, options: list[str]) -> str:
         try:

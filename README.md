@@ -1,6 +1,6 @@
 # SMILES2DockingFULL
 
-Aplicativo desktop e workflow Python para preparar ligantes a partir de planilhas `CSV`, `XLS` e `XLSX`, protonar em pH configurável, gerar estruturas 3D, refinar a geometria com `PM7` no `MOPAC` e exportar em `MOL2` ou `SDF`.
+Aplicativo desktop e workflow Python para preparar ligantes a partir de arquivos `SMI`, `TXT`, `CSV`, `TSV`, `XLS` e `XLSX`, protonar em pH configurável, gerar estruturas 3D, refinar a geometria com `PM7` no `MOPAC` e exportar em `MOL2` ou `SDF`.
 
 ## Autoria
 
@@ -12,7 +12,7 @@ Aplicativo desktop e workflow Python para preparar ligantes a partir de planilha
 
 ## Principais capacidades
 
-1. Carregar planilhas com colunas de ID e SMILES.
+1. Carregar entradas em `SMI`, `TXT`, `CSV`, `TSV`, `XLS` e `XLSX` com ID e SMILES.
 2. Remover sais, contraíons e fragmentos desconectados quando o fragmento principal é identificável.
 3. Protonar com Open Babel em pH configurável.
 4. Gerar estruturas 3D com RDKit.
@@ -34,9 +34,9 @@ https://github.com/amgoncalvesusp/Smiles2Docking/releases
 
 Arquivo atual:
 
-https://github.com/amgoncalvesusp/Smiles2Docking/releases/download/v0.2.3/SMILES2DOCKING_Setup_v0.2.3_win64.exe
+https://github.com/amgoncalvesusp/Smiles2Docking/releases/download/v0.2.4/SMILES2DOCKING_Setup_v0.2.4_win64.exe
 
-Depois de baixar, execute `SMILES2DOCKING_Setup_v0.2.3_win64.exe` e abra o SMILES2DOCKING pelo menu Iniciar do Windows.
+Depois de baixar, execute `SMILES2DOCKING_Setup_v0.2.4_win64.exe` e abra o SMILES2DOCKING pelo menu Iniciar do Windows.
 
 Requisitos:
 
