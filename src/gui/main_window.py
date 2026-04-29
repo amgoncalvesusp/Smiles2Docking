@@ -31,12 +31,8 @@ from PySide6.QtWidgets import (
 from src.app_metadata import (
     APP_NAME,
     APP_VERSION,
-    AUTHOR_AFFILIATION,
     AUTHOR_EMAIL,
-    AUTHOR_NAME,
     AUTHOR_SUMMARY,
-    COAUTHOR_AFFILIATION,
-    COAUTHOR_NAME,
     PROJECT_LICENSE,
 )
 from src.quantum.mopac_methods import COMMON_MOPAC_METHODS, get_method_info, normalize_mopac_method
@@ -1067,12 +1063,9 @@ class MainWindow(QMainWindow):
             "\n".join(
                 [
                     f"{APP_NAME} {APP_VERSION}",
-                    f"{self._text('author_label')}: {AUTHOR_NAME}",
-                    AUTHOR_AFFILIATION,
+                    f"{self._text('author_label')}: {AUTHOR_SUMMARY}",
                     AUTHOR_EMAIL,
                     "",
-                    f"{self._text('author_label')}: {COAUTHOR_NAME}",
-                    COAUTHOR_AFFILIATION,
                     f"{self._text('license_label')}: {PROJECT_LICENSE}",
                     self._text("about_notice"),
                 ]
