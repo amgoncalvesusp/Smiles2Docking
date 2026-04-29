@@ -56,6 +56,7 @@ datas = collect_data_files("rdkit") + [
     (str(project_root / "AUTHORS.md"), "."),
     (str(project_root / "CITATION.cff"), "."),
     (str(project_root / "LICENSE"), "."),
+    (str(project_root / "packaging" / "qt.conf"), "."),
 ]
 
 binaries = collect_dynamic_libs("rdkit")

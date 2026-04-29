@@ -1,11 +1,30 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+
+def _configure_qt_runtime() -> None:
+    root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+    pyside_root = root / "PySide6"
+    plugin_root = pyside_root / "plugins"
+    platforms_dir = plugin_root / "platforms"
+    if not platforms_dir.exists():
+        return
+    if hasattr(os, "add_dll_directory") and pyside_root.exists():
+        os.add_dll_directory(str(pyside_root))
+    os.environ["PATH"] = str(pyside_root) + os.pathsep + os.environ.get("PATH", "")
+    os.environ["QT_PLUGIN_PATH"] = str(plugin_root)
+    os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = str(platforms_dir)
+    os.environ["QT_QPA_PLATFORM"] = "windows"
+
+
+_configure_qt_runtime()
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
