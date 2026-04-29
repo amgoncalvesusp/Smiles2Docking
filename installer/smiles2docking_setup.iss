@@ -50,12 +50,24 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,SMILES2DOCKING}
 
 [Code]
 var
+  AuthorsNoticePage: TOutputMsgWizardPage;
   MopacNoticePage: TOutputMsgWizardPage;
 
 procedure InitializeWizard;
 begin
+  AuthorsNoticePage := CreateOutputMsgPage(
+    wpWelcome,
+    'Authors',
+    'SMILES2DOCKING was created by Adriano Marques Goncalves and Daniel Grajales Ruiz.',
+    'Authors:' + #13#10 +
+    'Adriano Marques Goncalves - Universidade de Araraquara - UNIARA' + #13#10 +
+    'Daniel Grajales Ruiz - IQ/UNESP' + #13#10 + #13#10 +
+    'Contact:' + #13#10 +
+    'amgoncalves@uniara.edu.br'
+  );
+
   MopacNoticePage := CreateOutputMsgPage(
-    wpLicense,
+    AuthorsNoticePage.ID,
     'Bundled third-party software',
     'MOPAC 23.2.4 is bundled with SMILES2DOCKING.',
     'This installer includes MOPAC 23.2.4 in the application folder. MOPAC is licensed under the Apache License 2.0.' + #13#10 + #13#10 +
