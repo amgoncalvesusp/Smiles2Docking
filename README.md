@@ -24,6 +24,27 @@ Aplicativo desktop e workflow Python para preparar ligantes a partir de planilha
 10. Gerar log final na mesma pasta de saída escolhida.
 11. Executar por CLI ou por interface gráfica desktop.
 
+## Download para Windows
+
+Usuários de Windows não precisam instalar Python, MOPAC, Open Babel ou dependências manualmente.
+
+Baixe o instalador na página de releases:
+
+https://github.com/amgoncalvesusp/Smiles2Docking/releases
+
+Arquivo atual:
+
+https://github.com/amgoncalvesusp/Smiles2Docking/releases/download/v0.2.0/SMILES2DOCKING_Setup_v0.2.0_win64.exe
+
+Depois de baixar, execute `SMILES2DOCKING_Setup_v0.2.0_win64.exe` e abra o SMILES2DOCKING pelo menu Iniciar do Windows.
+
+Requisitos:
+
+- Windows 10 64-bit ou superior.
+- Nenhuma instalação separada de Python.
+- Nenhuma instalação separada de MOPAC.
+- Nenhuma instalação separada de Open Babel.
+
 ## Estados de protonação
 
 O aplicativo determina o estado de protonação usando o Open Babel no pH selecionado pelo usuário, por meio da etapa `obabel -p <pH>`.
@@ -130,7 +151,7 @@ conda env create -f environment/environment.yml
 conda activate smiles2docking
 ```
 
-Observação: o projeto não exige uma dependência Python extra para MOPAC. Para manter o aplicativo mais leve, o build da variante Full não embute o `MOPAC` por padrão; o programa detecta uma instalação local, aceita caminho manual pela GUI/CLI e só deve embutir o runtime se isso for explicitamente solicitado no processo de build.
+Observação: o instalador Windows distribuído em GitHub Releases já inclui o runtime necessário para uso desktop. O ambiente Python descrito aqui é necessário apenas para desenvolvimento, testes ou geração de novos builds.
 
 ## Build do executável Windows
 
@@ -170,7 +191,7 @@ Este repositório está configurado para distribuição aberta sob `GPL-2.0-or-l
 
 ## Publicação no GitHub
 
-O projeto está estruturado para publicação aberta no GitHub com:
+O projeto está publicado no GitHub com:
 
 - código-fonte do workflow e da interface desktop
 - scripts de build para Windows e Linux
@@ -179,5 +200,8 @@ O projeto está estruturado para publicação aberta no GitHub com:
 - autoria identificada
 - documentação de distribuição e notices de terceiros
 - integração opcional com MOPAC para refinamento PM7
+- instalador Windows distribuído como asset de release
 
-Quando finalizarmos a interface e o comportamento do aplicativo, a publicação no GitHub pode ser feita mantendo o repositório como fonte oficial e distribuindo os builds gerados como assets de release.
+O instalador Windows fica em:
+
+https://github.com/amgoncalvesusp/Smiles2Docking/releases
