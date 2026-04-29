@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import re
+import shutil
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from rdkit import Chem
+
+from src.protonation.openbabel_adapter import OpenBabelConverter
+
+
+class Mol2ExportError(Exception):
+    """Raised when structure export fails."""
+
+
+@dataclass(slots=True)
+class StructureExporter:
+    export_settings: dict[str, Any]
+    protonation_settings: dict[str, Any]
+    converter: OpenBabelConverter = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.converter = OpenBabelConverter(self.protonation_settings)
+
+    @property
+    def mode(self) -> str:
+        return str(self.export_settings.get("mode", "separate_mol2"))
+
+    @property
+    def export_format(self) -> str:
+        if self.mode in {"single_sdf", "separate_sdf"}:
+            return "sdf"
+        return "mol2"
+
+    @property
+    def uses_batch_export(self) -> bool:
+        return self.mode in {"single_mol2", "single_sdf"}
+
+    def write(self, molecule: Chem.Mol, access_code: str) -> list[Path]:
+        if self.uses_batch_export:
+            raise Mol2ExportError("Batch export mode requires write_batch().")
+
+        output_dir = Path(self.export_settings["output_dir"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = self._separate_output_path(output_dir, access_code)
+        safe_name = output_path.stem
+        self._ensure_writable(output_path)
+
+        if self.mode == "separate_sdf":
+            self._write_sdf_records([(access_code, molecule)], output_path)
+            return [output_path]
+
+        with self._temporary_dir(output_dir) as tmp_path:
+            sdf_path = tmp_path / f"{safe_name}.sdf"
+            self._write_sdf_records([(access_code, molecule)], sdf_path)
+            self._convert_sdf_to_mol2(sdf_path, output_path, access_code)
+
+        return [output_path]
+
+    def write_batch(self, molecules: list[tuple[str, Chem.Mol]]) -> list[Path]:
+        if not molecules:
+            return []
+        if not self.uses_batch_export:
+            exported_paths: list[Path] = []
+            for access_code, molecule in molecules:
+                exported_paths.extend(self.write(molecule, access_code))
+            return exported_paths
+
+        output_dir = Path(self.export_settings["output_dir"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        bundle_name = self._resolved_bundle_name()
+
+        if self.mode == "single_sdf":
+            output_path = output_dir / f"{bundle_name}.sdf"
+            self._ensure_writable(output_path)
+            self._write_sdf_records(molecules, output_path)
+            return [output_path]
+
+        if self.mode == "single_mol2":
+            output_path = output_dir / f"{bundle_name}.mol2"
+            self._ensure_writable(output_path)
+            with self._temporary_dir(output_dir) as tmp_path:
+                sdf_path = tmp_path / f"{bundle_name}.sdf"
+                self._write_sdf_records(molecules, sdf_path)
+                self._convert_sdf_to_mol2(sdf_path, output_path, bundle_name)
+            return [output_path]
+
+        raise Mol2ExportError(f"Unsupported export mode: {self.mode}")
+
+    def _write_sdf_records(self, molecules: list[tuple[str, Chem.Mol]], output_path: Path) -> None:
+        writer = Chem.SDWriter(str(output_path))
+        if writer is None:
+            raise Mol2ExportError(f"Could not create SDF writer for {output_path}")
+        try:
+            for access_code, molecule in molecules:
+                export_molecule = Chem.Mol(molecule)
+                export_molecule.SetProp("_Name", access_code)
+                writer.write(export_molecule)
+        finally:
+            writer.close()
+
+    def _convert_sdf_to_mol2(self, input_sdf: Path, output_mol2: Path, label: str) -> None:
+        try:
+            self.converter.sdf_to_mol2(input_sdf, output_mol2)
+        except Exception as exc:
+            raise Mol2ExportError(f"Could not export {label!r} to MOL2: {exc}") from exc
+
+    def _ensure_writable(self, output_path: Path) -> None:
+        if output_path.exists() and not self.export_settings.get("overwrite", True):
+            raise Mol2ExportError(f"Output file already exists: {output_path}")
+
+    def _sanitize_filename(self, value: str) -> str:
+        sanitized = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value).strip())
+        return sanitized or "unnamed_record"
+
+    def _resolved_bundle_name(self) -> str:
+        raw_value = str(self.export_settings.get("bundle_basename", "")).strip()
+        if not raw_value:
+            raw_value = "prepared_ligands"
+        return self._sanitize_filename(raw_value)
+
+    def _separate_output_path(self, output_dir: Path, access_code: str) -> Path:
+        prefix = str(self.export_settings.get("bundle_basename", "")).strip()
+        safe_name = self._sanitize_filename(access_code)
+        if prefix:
+            safe_name = f"{self._sanitize_filename(prefix)}_{safe_name}"
+        suffix = ".sdf" if self.mode == "separate_sdf" else ".mol2"
+        return output_dir / f"{safe_name}{suffix}"
+
+    def _temporary_dir(self, output_dir: Path) -> "_TemporaryDirectory":
+        return _TemporaryDirectory(self.export_settings.get("temp_dir"), output_dir)
+
+
+@dataclass(slots=True)
+class _TemporaryDirectory:
+    configured_root: str | None
+    fallback_root: Path
+    path: Path | None = None
+
+    def __enter__(self) -> Path:
+        if self.configured_root:
+            base_dir = Path(self.configured_root)
+            base_dir.mkdir(parents=True, exist_ok=True)
+            self.path = base_dir / f"job_{uuid.uuid4().hex}"
+        else:
+            self.path = self.fallback_root / f"export_tmp_{uuid.uuid4().hex}"
+        self.path.mkdir(parents=True, exist_ok=True)
+        return self.path
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        if self.path is not None:
+            shutil.rmtree(self.path, ignore_errors=True)
+
+
+Mol2Exporter = StructureExporter

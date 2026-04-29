@@ -1,0 +1,12 @@
+database:
+  enabled: false
+  driver: postgresql
+  host: localhost
+  port: 5432
+  database: molecules
+  user: your_user
+  password: your_password
+  query: |
+    SELECT access_code, smiles
+    FROM compounds
+    WHERE smiles IS NOT NULL;

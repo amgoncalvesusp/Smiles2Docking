@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SMILES2DockingFULL
+Comment=Ligand preparation, protonation and PM7 refinement workflow for docking studies
+Exec=SMILES2DockingFULL
+Icon=smiles2docking
+Terminal=false
+Categories=Science;Education;Chemistry;
+StartupNotify=true

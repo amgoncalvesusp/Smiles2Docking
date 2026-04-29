@@ -1,0 +1,64 @@
+input:
+  source_type: spreadsheet
+  file_path: ""
+  sheet_name: null
+  smiles_column: smiles
+  access_code_column: access_code
+
+processing:
+  preserve_kekule: true
+  strict_fragment_disambiguation: true
+  skip_undefined_stereo: false
+  strict_stereochemistry: false
+  single_undefined_stereocenter_only: false
+  max_stereochemistry_variants: 16
+  allow_post_mopac_charge_rescue: true
+
+protonation:
+  enabled: true
+  ph: 7.4
+  obabel_binary: obabel
+  temp_dir: data/intermediate/tmp/protonation
+
+pm7:
+  enabled: true
+  method: PM7
+  binary_name: mopac
+  binary_path: ""
+  use_mmok: true
+  use_eps: true
+  eps: 78.39
+  preserve_files: false
+  preserved_files_dir: ""
+  temp_dir: data/intermediate/tmp/mopac
+
+structure_generation:
+  embed_seed: 61453
+  max_attempts: 3
+  optimize_geometry: true
+  force_field_preference:
+    - mmff94
+    - mmff94s
+    - uff
+  max_optimization_iterations: 1000
+  allow_unoptimized_output: false
+
+export:
+  output_dir: data/processed
+  overwrite: true
+  temp_dir: data/intermediate/tmp/export
+  mode: separate_mol2
+  bundle_basename: ""
+
+reporting:
+  report_dir: data/reports
+  use_output_dir: true
+
+logging:
+  log_dir: logs
+  file_name: workflow.log
+  level: INFO
+  use_output_dir: true
+
+ui:
+  language: en

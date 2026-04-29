@@ -1,0 +1,16 @@
+name: smiles2docking
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - rdkit
+  - openbabel
+  - pandas
+  - pyyaml
+  - openpyxl
+  - pyside6
+  - pyinstaller
+  - pytest
+  - pip
+  - pip:
+      - typing-extensions

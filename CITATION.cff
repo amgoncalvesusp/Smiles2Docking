@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+title: "SMILES2Docking"
+message: "If you use this software, please cite it using the metadata below."
+type: software
+authors:
+  - family-names: "Goncalves"
+    given-names: "Adriano Marques"
+    affiliation: "Universidade de Araraquara - UNIARA"
+    email: "amgoncalves@uniara.edu.br"
+  - family-names: "Ruiz"
+    given-names: "Daniel Grajales"
+    affiliation: "IQ/UNESP"
+repository-code: "C:/Users/adria/OneDrive/Documents/Projetos IA/SMILES2Docking"
+license: "GPL-2.0-or-later"
+version: "0.2.0"

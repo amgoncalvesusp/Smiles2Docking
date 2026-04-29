@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_tmp/
+.tmp/
+.tmp_*/
+.tmp_syntax_check.py
+sandbox_probe/
+vendor_downloads/
+build/
+dist/
+installer/output/
+release/
+release_*/
+data/intermediate/tmp/
+data/intermediate/test_tmp/
+tests/.tmp/
+*.log
+MOPAC Error message.txt
