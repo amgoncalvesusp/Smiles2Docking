@@ -38,6 +38,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\dist\smiles2docking\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\*"
+
 [Icons]
 Name: "{group}\SMILES2DOCKING"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\SMILES2DOCKING"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon

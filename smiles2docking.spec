@@ -1,10 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 
+import PySide6
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 
 project_root = Path.cwd()
+pyside_root = Path(PySide6.__file__).resolve().parent
 
 rdkit_hiddenimports = sorted(
     set(
@@ -57,6 +59,7 @@ datas = collect_data_files("rdkit") + [
     (str(project_root / "CITATION.cff"), "."),
     (str(project_root / "LICENSE"), "."),
     (str(project_root / "packaging" / "qt.conf"), "."),
+    (str(pyside_root / "plugins" / "platforms"), "platforms"),
 ]
 
 binaries = collect_dynamic_libs("rdkit")

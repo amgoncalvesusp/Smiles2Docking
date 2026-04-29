@@ -34,9 +34,9 @@ https://github.com/amgoncalvesusp/Smiles2Docking/releases
 
 Arquivo atual:
 
-https://github.com/amgoncalvesusp/Smiles2Docking/releases/download/v0.2.2/SMILES2DOCKING_Setup_v0.2.2_win64.exe
+https://github.com/amgoncalvesusp/Smiles2Docking/releases/download/v0.2.3/SMILES2DOCKING_Setup_v0.2.3_win64.exe
 
-Depois de baixar, execute `SMILES2DOCKING_Setup_v0.2.2_win64.exe` e abra o SMILES2DOCKING pelo menu Iniciar do Windows.
+Depois de baixar, execute `SMILES2DOCKING_Setup_v0.2.3_win64.exe` e abra o SMILES2DOCKING pelo menu Iniciar do Windows.
 
 Requisitos:
 
