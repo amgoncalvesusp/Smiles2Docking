@@ -182,8 +182,9 @@ Aplicativo desktop e workflow Python para preparar ligantes a partir de arquivos
 - Adriano Marques Gonçalves
 - Universidade de Araraquara - UNIARA
 - amgoncalves@uniara.edu.br
-- Daniel Grajales Ruiz
+- Daniel Andrés Grajales Ruiz
 - IQ/UNESP
+- daniel.g.ruiz@unesp.br
 
 ## Principais capacidades
 
