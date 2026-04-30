@@ -1,6 +1,179 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19900623.svg)](https://doi.org/10.5281/zenodo.19900623)
 # SMILES2DockingFULL
 
+Desktop application and Python workflow for preparing ligands from `SMI`, `TXT`, `CSV`, `TSV`, `XLS`, and `XLSX` files, protonating at a configurable pH, generating 3D structures, refining geometry with `PM7` in `MOPAC`, and exporting in `MOL2` or `SDF` format.
+
+## Authors
+
+- Adriano Marques Gonçalves
+- University of Araraquara - UNIARA
+- amgoncalves@uniara.edu.br
+- Daniel Grajales Ruiz
+- IQ/UNESP
+
+## Main Capabilities
+
+1. Load input data from `SMI`, `TXT`, `CSV`, `TSV`, `XLS`, and `XLSX` files with ID and SMILES columns.
+2. Remove salts, counterions, and disconnected fragments when the main fragment can be identified.
+3. Protonate using Open Babel at a configurable pH.
+4. Generate 3D structures with RDKit.
+5. Optimize geometry using the `MMFF94 -> MMFF94s -> UFF` cascade.
+6. Refine the final structure with `MOPAC PM7` using `MMOK`, `XYZ`, `CHARGE=n`, and optional `EPS=n.nn`.
+7. Optionally preserve the native `MOPAC` job files.
+8. Export as separate `.mol2` files, separate `.sdf` files, a single `.mol2`, or a single `.sdf`.
+9. Generate a JSON report with processing audit information.
+10. Generate a final log in the selected output folder.
+11. Run via CLI or desktop graphical interface.
+
+## Windows Download
+
+Windows users do not need to manually install Python, MOPAC, Open Babel, or dependencies.
+
+Download the installer from the releases page:
+
+https://github.com/amgoncalvesusp/Smiles2Docking/releases
+
+Current file:
+
+https://github.com/amgoncalvesusp/Smiles2Docking/releases/download/v1.0/SMILES2DOCKING_Setup_v1.0_win64.exe
+
+After downloading, run `SMILES2DOCKING_Setup_v1.0_win64.exe` and launch SMILES2DOCKING from the Windows Start menu.
+
+Requirements:
+
+- Windows 10 64-bit or later.
+- No separate Python installation.
+- No separate MOPAC installation.
+- No separate Open Babel installation.
+
+## Protonation States
+
+The application determines the protonation state using Open Babel at the user-selected pH through the `obabel -p <pH>` step.
+
+Practical validation of this implementation:
+
+- `CC(=O)O` at `pH 12` was converted to `CC(=O)[O-]`
+- `CN` at `pH 2` was converted to `C[NH3+]`
+
+This confirms that the application is adjusting protonation states according to pH for simple acid/base cases.
+
+## PM7 Refinement
+
+When the PM7 step is enabled, the application:
+
+- calculates the final net charge of the protonated molecule
+- builds a `.mop` file with `PM7 MMOK XYZ CHARGE=n`
+- adds `EPS=78.39` by default for water, with an option to disable implicit solvent
+- runs MOPAC and uses the final optimized geometry for export
+- can preserve the MOPAC job files in `mopac_files/` inside the output directory
+
+MOPAC binary lookup order:
+
+1. path configured in `config/settings.yaml`
+2. binary bundled with the application
+3. `mopac` in the `PATH`
+4. `C:\Program Files\MOPAC\bin\mopac.exe` on Windows
+
+## Graphical Interface
+
+Run:
+
+```bash
+python scripts/run_gui.py
+The interface allows you to:
+
+select the input file
+choose the Excel sheet
+adjust the access_code and smiles columns
+define the protonation pH
+enable or disable PM7 refinement
+enable or disable implicit solvent with EPS
+choose whether native MOPAC files should be preserved
+manually provide the path to the MOPAC executable, if needed
+choose between separate MOL2 files, separate SDF files, a single MOL2, or a single SDF
+edit the output base name; in separate export mode it works as an optional prefix
+run in the background, minimizing the window and avoiding completion/error pop-ups
+switch the interface between English and Portuguese using a visible selector in the main window
+choose the final output directory for structures, JSON report, and execution log
+Command Line
+Example with PM7 enabled:
+
+python scripts/run_workflow.py --input data/raw/sample_molecules.csv --ph 7.4 --pm7 --pm7-solvent --pm7-eps 78.39
+Gas-phase example:
+
+python scripts/run_workflow.py --input data/raw/sample_molecules.csv --no-pm7-solvent
+Example with PM7 disabled:
+
+python scripts/run_workflow.py --input data/raw/sample_molecules.csv --no-pm7
+Example preserving MOPAC files:
+
+python scripts/run_workflow.py --input data/raw/sample_molecules.csv --preserve-mopac-files
+Architecture
+SMILES2Docking_Full/
+├── AUTHORS.md
+├── CITATION.cff
+├── LICENSE
+├── README.md
+├── docs/
+├── environment/
+├── packaging/
+├── config/
+├── data/
+├── logs/
+├── scripts/
+├── src/
+└── tests/
+Environment
+Suggested setup:
+
+conda env create -f environment/environment.yml
+conda activate smiles2docking
+Note: the Windows installer distributed through GitHub Releases already includes the runtime required for desktop use. The Python environment described here is only necessary for development, testing, or generating new builds.
+
+Windows Executable Build
+With the smiles2docking environment activated, run:
+
+packaging\windows\build_executable.bat
+The build generates a folder in %LOCALAPPDATA%\SMILES2DockingFULLBuild\dist\SMILES2DockingFULL\.
+
+Linux Package Build
+On a Linux x86_64 host, with the smiles2docking environment activated:
+
+chmod +x packaging/linux/build_portable.sh
+./packaging/linux/build_portable.sh
+The process generates:
+
+a portable AppDir
+a distributable tar.gz
+a tar.gz containing the source code
+optionally a .AppImage, if appimagetool is installed
+Full details are available in docs/LINUX_DISTRIBUTION.md.
+
+Open Distribution and Notices
+Distribution and third-party documents are available in docs/DISTRIBUTION.md and docs/THIRD_PARTY_NOTICES.md.
+
+Project License
+This repository is configured for open distribution under GPL-2.0-or-later to maintain compatibility with the use of Open Babel in the distributed application. See LICENSE.
+
+GitHub Publication
+The project is published on GitHub with:
+
+source code for the workflow and desktop interface
+build scripts for Windows and Linux
+project license
+citation file
+identified authorship
+distribution documentation and third-party notices
+optional integration with MOPAC for PM7 refinement
+Windows installer distributed as a release asset
+The Windows installer is available at:
+
+
+Se quiser, eu também posso aplicar essa tradução diretamente no arquivo [README.md](C:/Users/adria/OneDrive/Documents/Projetos%20IA/SMILES2Docking/README.md).
+
+
+# SMILES2Docking
+
 Aplicativo desktop e workflow Python para preparar ligantes a partir de arquivos `SMI`, `TXT`, `CSV`, `TSV`, `XLS` e `XLSX`, protonar em pH configurável, gerar estruturas 3D, refinar a geometria com `PM7` no `MOPAC` e exportar em `MOL2` ou `SDF`.
 
 ## Autoria
