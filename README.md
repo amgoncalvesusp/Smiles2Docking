@@ -8,8 +8,9 @@ Desktop application and Python workflow for preparing ligands from `SMI`, `TXT`,
 - Adriano Marques Gonçalves
 - University of Araraquara - UNIARA
 - amgoncalves@uniara.edu.br
-- Daniel Grajales Ruiz
+- Daniel Andrés Grajales Ruiz
 - IQ/UNESP
+- daniel.g.ruiz@unesp.br
 
 ## Main Capabilities
 
