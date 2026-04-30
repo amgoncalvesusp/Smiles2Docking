@@ -1,6 +1,4 @@
-```markdown
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19900623.svg)](https://doi.org/10.5281/zenodo.19900623)
-
 # SMILES2DockingFULL
 
 Aplicativo desktop e workflow Python para preparar ligantes a partir de arquivos `SMI`, `TXT`, `CSV`, `TSV`, `XLS` e `XLSX`, protonar em pH configurável, gerar estruturas 3D, refinar a geometria com `PM7` no `MOPAC` e exportar em `MOL2` ou `SDF`.
