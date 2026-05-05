@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -27,6 +28,16 @@ def test_bundled_obabel_binary_prefers_linux_bundle(monkeypatch) -> None:
         monkeypatch.setattr(runtime, "runtime_root", lambda: tmp_path)
 
         assert runtime.bundled_obabel_binary() == str(linux_binary)
+
+
+def test_bundled_obabel_binary_uses_vendor_fallback(monkeypatch) -> None:
+    with workspace_tmp_dir() as tmp_path:
+        vendor_binary = tmp_path / "vendor" / "openbabel" / "obabel.exe"
+        vendor_binary.parent.mkdir(parents=True)
+        vendor_binary.write_text("", encoding="utf-8")
+        monkeypatch.setattr(runtime, "runtime_root", lambda: tmp_path)
+
+        assert runtime.bundled_obabel_binary() == str(vendor_binary)
 
 
 def test_bundled_mopac_binary_prefers_bundle(monkeypatch) -> None:
@@ -60,6 +71,28 @@ def test_openbabel_runtime_env_sets_linux_paths(monkeypatch) -> None:
         assert env["PATH"].startswith(f"{bin_dir};{lib_dir};") or env["PATH"].startswith(
             f"{bin_dir}:{lib_dir}:"
         )
-        assert env["LD_LIBRARY_PATH"].startswith(f"{lib_dir};{bin_dir};") or env[
-            "LD_LIBRARY_PATH"
-        ].startswith(f"{lib_dir}:{bin_dir}:")
+        if os.name != "nt":
+            assert env["LD_LIBRARY_PATH"].startswith(f"{lib_dir};{bin_dir};") or env[
+                "LD_LIBRARY_PATH"
+            ].startswith(f"{lib_dir}:{bin_dir}:")
+
+
+def test_openbabel_runtime_env_sets_vendor_paths(monkeypatch) -> None:
+    with workspace_tmp_dir() as tmp_path:
+        openbabel_root = tmp_path / "vendor" / "openbabel"
+        data_dir = openbabel_root / "data"
+        plugins_dir = openbabel_root / "plugins"
+        bin_dir = openbabel_root / "bin"
+        lib_dir = openbabel_root / "lib"
+
+        for path in (data_dir, plugins_dir, bin_dir, lib_dir):
+            path.mkdir(parents=True)
+
+        monkeypatch.setattr(runtime, "runtime_root", lambda: tmp_path)
+        env = runtime.openbabel_runtime_env({"PATH": "/usr/bin", "LD_LIBRARY_PATH": "/usr/lib"})
+
+        assert env["BABEL_DATADIR"] == str(data_dir)
+        assert env["BABEL_LIBDIR"] == str(plugins_dir)
+        assert env["PATH"].startswith(f"{bin_dir};{lib_dir};") or env["PATH"].startswith(
+            f"{bin_dir}:{lib_dir}:"
+        )

@@ -101,8 +101,10 @@ LANGUAGE_TEXT = {
         "summary_author": f"Authors: {AUTHOR_SUMMARY} | Contact: {AUTHOR_EMAIL}",
         "mode_separate_mol2": "Separate MOL2 files",
         "mode_separate_sdf": "Separate SDF files",
+        "mode_separate_pdbqt": "Separate PDBQT files",
         "mode_single_mol2": "Single MOL2 file",
         "mode_single_sdf": "Single SDF file",
+        "mode_single_pdbqt": "Single PDBQT file",
         "background": "Run in background and minimize the window",
         "failure_summary": "Execution failed: {message}",
         "author_label": "Author",
@@ -179,8 +181,10 @@ LANGUAGE_TEXT = {
         "summary_author": f"Autoria: {AUTHOR_SUMMARY} | Contato: {AUTHOR_EMAIL}",
         "mode_separate_mol2": "Arquivos MOL2 separados",
         "mode_separate_sdf": "Arquivos SDF separados",
+        "mode_separate_pdbqt": "Arquivos PDBQT separados",
         "mode_single_mol2": "Um único arquivo MOL2",
         "mode_single_sdf": "Um único arquivo SDF",
+        "mode_single_pdbqt": "Um único arquivo PDBQT",
         "background": "Executar em segundo plano e minimizar a janela",
         "failure_summary": "Execução falhou: {message}",
         "author_label": "Autoria",
@@ -360,8 +364,10 @@ class MainWindow(QMainWindow):
         label_map = {
             "separate_mol2": self._text("mode_separate_mol2"),
             "separate_sdf": self._text("mode_separate_sdf"),
+            "separate_pdbqt": self._text("mode_separate_pdbqt"),
             "single_mol2": self._text("mode_single_mol2"),
             "single_sdf": self._text("mode_single_sdf"),
+            "single_pdbqt": self._text("mode_single_pdbqt"),
         }
         for index in range(self.export_mode_combo.count()):
             export_mode = str(self.export_mode_combo.itemData(index))
@@ -623,8 +629,10 @@ class MainWindow(QMainWindow):
         self.export_mode_combo = QComboBox()
         self.export_mode_combo.addItem(self._text("mode_separate_mol2"), "separate_mol2")
         self.export_mode_combo.addItem(self._text("mode_separate_sdf"), "separate_sdf")
+        self.export_mode_combo.addItem(self._text("mode_separate_pdbqt"), "separate_pdbqt")
         self.export_mode_combo.addItem(self._text("mode_single_mol2"), "single_mol2")
         self.export_mode_combo.addItem(self._text("mode_single_sdf"), "single_sdf")
+        self.export_mode_combo.addItem(self._text("mode_single_pdbqt"), "single_pdbqt")
         configured_export_mode = self.base_settings["export"].get("mode", "separate_mol2")
         configured_index = max(self.export_mode_combo.findData(configured_export_mode), 0)
         self.export_mode_combo.setCurrentIndex(configured_index)
@@ -876,7 +884,7 @@ class MainWindow(QMainWindow):
             self.mopac_binary_edit.setText(path)
 
     def _toggle_bundle_name_state(self) -> None:
-        single_file_mode = self.export_mode_combo.currentData() in {"single_mol2", "single_sdf"}
+        single_file_mode = self.export_mode_combo.currentData() in {"single_mol2", "single_sdf", "single_pdbqt"}
         self.bundle_name_edit.setEnabled(True)
         if single_file_mode:
             self.bundle_name_edit.setPlaceholderText(self._text("bundle_placeholder_enabled"))
@@ -885,7 +893,7 @@ class MainWindow(QMainWindow):
         self.bundle_name_hint_label.setText(self._bundle_name_hint_text())
 
     def _bundle_name_hint_text(self) -> str:
-        if self.export_mode_combo.currentData() in {"single_mol2", "single_sdf"}:
+        if self.export_mode_combo.currentData() in {"single_mol2", "single_sdf", "single_pdbqt"}:
             return self._text("bundle_hint_single")
         return self._text("bundle_hint_separate")
 
@@ -1076,8 +1084,10 @@ class MainWindow(QMainWindow):
         descriptions = {
             "separate_mol2": self._text("mode_separate_mol2"),
             "separate_sdf": self._text("mode_separate_sdf"),
+            "separate_pdbqt": self._text("mode_separate_pdbqt"),
             "single_mol2": self._text("mode_single_mol2"),
             "single_sdf": self._text("mode_single_sdf"),
+            "single_pdbqt": self._text("mode_single_pdbqt"),
         }
         return descriptions.get(export_mode, export_mode)
 

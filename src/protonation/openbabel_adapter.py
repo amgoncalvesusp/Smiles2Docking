@@ -140,6 +140,22 @@ class OpenBabelConverter:
     def sdf_to_mol2(self, input_sdf: Path, output_mol2: Path) -> None:
         obabel_binary = bundled_obabel_binary(self.settings.get("obabel_binary", "obabel"))
         command = [obabel_binary, str(input_sdf), "-O", str(output_mol2)]
+        self._run_conversion(command)
+
+    def sdf_to_pdbqt(self, input_sdf: Path, output_pdbqt: Path) -> None:
+        obabel_binary = bundled_obabel_binary(self.settings.get("obabel_binary", "obabel"))
+        command = [
+            obabel_binary,
+            str(input_sdf),
+            "--partialcharge",
+            "gasteiger",
+            "-O",
+            str(output_pdbqt),
+            "-xh",
+        ]
+        self._run_conversion(command)
+
+    def _run_conversion(self, command: list[str]) -> None:
         result = subprocess.run(
             command,
             capture_output=True,

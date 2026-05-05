@@ -16,6 +16,18 @@ class Mol2ExportError(Exception):
     """Raised when structure export fails."""
 
 
+EXPORT_FORMAT_BY_MODE = {
+    "separate_mol2": "mol2",
+    "single_mol2": "mol2",
+    "separate_sdf": "sdf",
+    "single_sdf": "sdf",
+    "separate_pdbqt": "pdbqt",
+    "single_pdbqt": "pdbqt",
+}
+
+SINGLE_FILE_MODES = {"single_mol2", "single_sdf", "single_pdbqt"}
+
+
 @dataclass(slots=True)
 class StructureExporter:
     export_settings: dict[str, Any]
@@ -31,13 +43,11 @@ class StructureExporter:
 
     @property
     def export_format(self) -> str:
-        if self.mode in {"single_sdf", "separate_sdf"}:
-            return "sdf"
-        return "mol2"
+        return EXPORT_FORMAT_BY_MODE.get(self.mode, "mol2")
 
     @property
     def uses_batch_export(self) -> bool:
-        return self.mode in {"single_mol2", "single_sdf"}
+        return self.mode in SINGLE_FILE_MODES
 
     def write(self, molecule: Chem.Mol, access_code: str) -> list[Path]:
         if self.uses_batch_export:
@@ -56,7 +66,10 @@ class StructureExporter:
         with self._temporary_dir(output_dir) as tmp_path:
             sdf_path = tmp_path / f"{safe_name}.sdf"
             self._write_sdf_records([(access_code, molecule)], sdf_path)
-            self._convert_sdf_to_mol2(sdf_path, output_path, access_code)
+            if self.mode == "separate_pdbqt":
+                self._convert_sdf_to_pdbqt(sdf_path, output_path, access_code)
+            else:
+                self._convert_sdf_to_mol2(sdf_path, output_path, access_code)
 
         return [output_path]
 
@@ -88,6 +101,15 @@ class StructureExporter:
                 self._convert_sdf_to_mol2(sdf_path, output_path, bundle_name)
             return [output_path]
 
+        if self.mode == "single_pdbqt":
+            output_path = output_dir / f"{bundle_name}.pdbqt"
+            self._ensure_writable(output_path)
+            with self._temporary_dir(output_dir) as tmp_path:
+                sdf_path = tmp_path / f"{bundle_name}.sdf"
+                self._write_sdf_records(molecules, sdf_path)
+                self._convert_sdf_to_pdbqt(sdf_path, output_path, bundle_name)
+            return [output_path]
+
         raise Mol2ExportError(f"Unsupported export mode: {self.mode}")
 
     def _write_sdf_records(self, molecules: list[tuple[str, Chem.Mol]], output_path: Path) -> None:
@@ -108,6 +130,12 @@ class StructureExporter:
         except Exception as exc:
             raise Mol2ExportError(f"Could not export {label!r} to MOL2: {exc}") from exc
 
+    def _convert_sdf_to_pdbqt(self, input_sdf: Path, output_pdbqt: Path, label: str) -> None:
+        try:
+            self.converter.sdf_to_pdbqt(input_sdf, output_pdbqt)
+        except Exception as exc:
+            raise Mol2ExportError(f"Could not export {label!r} to PDBQT: {exc}") from exc
+
     def _ensure_writable(self, output_path: Path) -> None:
         if output_path.exists() and not self.export_settings.get("overwrite", True):
             raise Mol2ExportError(f"Output file already exists: {output_path}")
@@ -127,7 +155,8 @@ class StructureExporter:
         safe_name = self._sanitize_filename(access_code)
         if prefix:
             safe_name = f"{self._sanitize_filename(prefix)}_{safe_name}"
-        suffix = ".sdf" if self.mode == "separate_sdf" else ".mol2"
+        suffix_by_format = {"sdf": ".sdf", "pdbqt": ".pdbqt", "mol2": ".mol2"}
+        suffix = suffix_by_format[self.export_format]
         return output_dir / f"{safe_name}{suffix}"
 
     def _temporary_dir(self, output_dir: Path) -> "_TemporaryDirectory":

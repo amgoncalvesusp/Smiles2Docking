@@ -2,7 +2,7 @@
 
 ## Scope
 
-This project includes Linux packaging assets for a portable desktop distribution of `SMILES2DockingFULL` based on `PyInstaller`.
+This project includes Linux packaging assets for a portable desktop distribution of `SMILES2Docking` based on `PyInstaller`.
 
 The Linux packaging workflow produces:
 
@@ -45,18 +45,18 @@ chmod +x packaging/linux/build_portable.sh
 
 The Linux build script writes to `release/linux`:
 
-- `SMILES2DockingFULL-x86_64.AppDir`
-- `SMILES2DockingFULL-linux-x86_64.tar.gz`
-- `SMILES2DockingFULL-source.tar.gz`
-- optionally `SMILES2DockingFULL-x86_64.AppImage`
+- `SMILES2Docking-x86_64.AppDir`
+- `SMILES2Docking-linux-x86_64.tar.gz`
+- `SMILES2Docking-source.tar.gz`
+- optionally `SMILES2Docking-x86_64.AppImage`
 
 ## End-User Installation
 
 For the portable archive:
 
 ```bash
-tar -xzf SMILES2DockingFULL-linux-x86_64.tar.gz
-cd SMILES2DockingFULL-x86_64.AppDir
+tar -xzf SMILES2Docking-linux-x86_64.tar.gz
+cd SMILES2Docking-x86_64.AppDir
 ./AppRun
 ```
 
@@ -74,7 +74,7 @@ If desired, update the `Exec=` and `Icon=` entries to the final extraction path.
 - The launcher exports `PATH` for bundled MOPAC and Open Babel binaries.
 - The launcher exports `LD_LIBRARY_PATH` for bundled Open Babel shared libraries.
 - If MOPAC is not bundled, the application can still use a system-installed `mopac`.
-- The Linux spec only bundles `mopac` when `SMILES2DOCKINGFULL_BUNDLE_MOPAC=1` is set during the build.
+- The Linux spec only bundles `mopac` when `SMILES2DOCKING_BUNDLE_MOPAC=1` is set during the build.
 
 ## Distribution Checklist
 

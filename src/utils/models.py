@@ -38,6 +38,8 @@ class RunReport:
     generated_structure_files: list[str] = field(default_factory=list)
     mol2_files_written: int = 0
     generated_mol2_files: list[str] = field(default_factory=list)
+    pdbqt_files_written: int = 0
+    generated_pdbqt_files: list[str] = field(default_factory=list)
     figure_panels_generated: int = 0
     figure_pages_written: int = 0
     figure_report_path: str | None = None

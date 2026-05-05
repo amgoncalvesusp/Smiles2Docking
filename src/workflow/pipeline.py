@@ -59,7 +59,12 @@ def run_workflow(
             else "disabled"
         ),
     )
-    report.export_format = "sdf" if report.export_mode in {"single_sdf", "separate_sdf"} else "mol2"
+    if report.export_mode in {"single_sdf", "separate_sdf"}:
+        report.export_format = "sdf"
+    elif report.export_mode in {"single_pdbqt", "separate_pdbqt"}:
+        report.export_format = "pdbqt"
+    else:
+        report.export_format = "mol2"
     report.log_file_path = str(resolve_log_path(settings))
     if report.pm7_files_preserved:
         report.pm7_preserved_files_dir = _resolve_pm7_preserved_files_dir(settings)
@@ -273,6 +278,9 @@ def _register_exported_paths(report: RunReport, exported_paths: list[Any], expor
     if export_format == "mol2":
         report.mol2_files_written += len(exported_paths)
         report.generated_mol2_files.extend(str(path) for path in exported_paths)
+    elif export_format == "pdbqt":
+        report.pdbqt_files_written += len(exported_paths)
+        report.generated_pdbqt_files.extend(str(path) for path in exported_paths)
 
 
 def _register_stereochemistry_resolution(report: RunReport, resolution: Any, record: Any) -> None:

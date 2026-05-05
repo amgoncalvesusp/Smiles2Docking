@@ -55,7 +55,7 @@ for candidate in sorted(openbabel_bin.glob("*.obf")):
 
 mopac_binaries = []
 mopac_datas = []
-bundle_mopac = os.environ.get("SMILES2DOCKINGFULL_BUNDLE_MOPAC", "").strip().lower() in {"1", "true", "yes", "on"}
+bundle_mopac = os.environ.get("SMILES2DOCKING_BUNDLE_MOPAC", "").strip().lower() in {"1", "true", "yes", "on"}
 if bundle_mopac:
     program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
     mopac_roots = [env_prefix, program_files / "MOPAC"]
@@ -102,7 +102,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="SMILES2DockingFULL",
+    name="SMILES2Docking",
     icon=str(project_root / "assets" / "caffeine_icon.ico"),
     debug=False,
     bootloader_ignore_signals=False,
@@ -117,5 +117,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="SMILES2DockingFULL",
+    name="SMILES2Docking",
 )

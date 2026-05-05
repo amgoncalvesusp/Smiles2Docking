@@ -9,7 +9,7 @@
 AppId={{9F6C1B97-6E92-4D9E-9D97-0CE1D36D85F4}}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppPublisher=Adriano Marques Goncalves; Daniel Grajales Ruiz
+AppPublisher=Adriano Marques Goncalves; Daniel Grajales Ruiz; Nailton Monteiro do Nascimento Júnior
 AppPublisherURL=https://github.com/amgoncalvesusp/Smiles2Docking
 AppSupportURL=https://github.com/amgoncalvesusp/Smiles2Docking/issues
 AppUpdatesURL=https://github.com/amgoncalvesusp/Smiles2Docking/releases
@@ -58,10 +58,11 @@ begin
   AuthorsNoticePage := CreateOutputMsgPage(
     wpWelcome,
     'Authors',
-    'SMILES2DOCKING was created by Adriano Marques Goncalves and Daniel Grajales Ruiz.',
+    'SMILES2DOCKING was created by Adriano Marques Goncalves, Daniel Grajales Ruiz, and Nailton Monteiro do Nascimento Júnior.',
     'Authors:' + #13#10 +
     'Adriano Marques Goncalves - Universidade de Araraquara - UNIARA' + #13#10 +
-    'Daniel Grajales Ruiz - IQ/UNESP' + #13#10 + #13#10 +
+    'Daniel Grajales Ruiz - IQ/UNESP' + #13#10 +
+    'Nailton Monteiro do Nascimento Júnior - IQ/UNESP' + #13#10 + #13#10 +
     'Contact:' + #13#10 +
     'amgoncalves@uniara.edu.br'
   );

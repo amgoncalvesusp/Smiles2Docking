@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=SMILES2DockingFULL
+Name=SMILES2Docking
 Comment=Ligand preparation, protonation and PM7 refinement workflow for docking studies
-Exec=SMILES2DockingFULL
+Exec=SMILES2Docking
 Icon=smiles2docking
 Terminal=false
 Categories=Science;Education;Chemistry;

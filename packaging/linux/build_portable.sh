@@ -2,14 +2,14 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/SMILES2DockingFULLBuild"
+BUILD_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/SMILES2DockingBuild"
 DIST_ROOT="$BUILD_ROOT/dist"
 WORK_ROOT="$BUILD_ROOT/build"
 RELEASE_ROOT="$PROJECT_ROOT/release/linux"
-APPDIR_ROOT="$RELEASE_ROOT/SMILES2DockingFULL-x86_64.AppDir"
-PYINSTALLER_DIST="$DIST_ROOT/SMILES2DockingFULL"
-SOURCE_ARCHIVE="$RELEASE_ROOT/SMILES2DockingFULL-source.tar.gz"
-PORTABLE_ARCHIVE="$RELEASE_ROOT/SMILES2DockingFULL-linux-x86_64.tar.gz"
+APPDIR_ROOT="$RELEASE_ROOT/SMILES2Docking-x86_64.AppDir"
+PYINSTALLER_DIST="$DIST_ROOT/SMILES2Docking"
+SOURCE_ARCHIVE="$RELEASE_ROOT/SMILES2Docking-source.tar.gz"
+PORTABLE_ARCHIVE="$RELEASE_ROOT/SMILES2Docking-linux-x86_64.tar.gz"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   echo "Este script deve ser executado em Linux."
@@ -35,26 +35,26 @@ mkdir -p "$APPDIR_ROOT/usr/bin"
 mkdir -p "$APPDIR_ROOT/usr/lib"
 mkdir -p "$APPDIR_ROOT/usr/share/applications"
 mkdir -p "$APPDIR_ROOT/usr/share/icons/hicolor/scalable/apps"
-mkdir -p "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull"
+mkdir -p "$APPDIR_ROOT/usr/share/doc/smiles2docking"
 
-cp -R "$PYINSTALLER_DIST" "$APPDIR_ROOT/usr/lib/smiles2dockingfull"
+cp -R "$PYINSTALLER_DIST" "$APPDIR_ROOT/usr/lib/smiles2docking"
 cp "$PROJECT_ROOT/packaging/linux/AppRun" "$APPDIR_ROOT/AppRun"
-cp "$PROJECT_ROOT/packaging/linux/run_smiles2docking.sh" "$APPDIR_ROOT/usr/bin/SMILES2DockingFULL"
-cp "$PROJECT_ROOT/packaging/linux/SMILES2DockingDesktop.desktop" "$APPDIR_ROOT/usr/share/applications/SMILES2DockingFULL.desktop"
-cp "$PROJECT_ROOT/packaging/linux/SMILES2DockingDesktop.desktop" "$APPDIR_ROOT/SMILES2DockingFULL.desktop"
+cp "$PROJECT_ROOT/packaging/linux/run_smiles2docking.sh" "$APPDIR_ROOT/usr/bin/SMILES2Docking"
+cp "$PROJECT_ROOT/packaging/linux/SMILES2DockingDesktop.desktop" "$APPDIR_ROOT/usr/share/applications/SMILES2Docking.desktop"
+cp "$PROJECT_ROOT/packaging/linux/SMILES2DockingDesktop.desktop" "$APPDIR_ROOT/SMILES2Docking.desktop"
 cp "$PROJECT_ROOT/packaging/linux/smiles2docking.svg" "$APPDIR_ROOT/usr/share/icons/hicolor/scalable/apps/smiles2docking.svg"
 cp "$PROJECT_ROOT/packaging/linux/smiles2docking.svg" "$APPDIR_ROOT/smiles2docking.svg"
 
-cp "$PROJECT_ROOT/LICENSE" "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull/LICENSE"
-cp "$PROJECT_ROOT/AUTHORS.md" "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull/AUTHORS.md"
-cp "$PROJECT_ROOT/CITATION.cff" "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull/CITATION.cff"
-cp "$PROJECT_ROOT/README.md" "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull/README.md"
-cp "$PROJECT_ROOT/docs/DISTRIBUTION.md" "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull/DISTRIBUTION.md"
-cp "$PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md" "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull/THIRD_PARTY_NOTICES.md"
-cp "$PROJECT_ROOT/docs/LINUX_DISTRIBUTION.md" "$APPDIR_ROOT/usr/share/doc/smiles2dockingfull/LINUX_DISTRIBUTION.md"
+cp "$PROJECT_ROOT/LICENSE" "$APPDIR_ROOT/usr/share/doc/smiles2docking/LICENSE"
+cp "$PROJECT_ROOT/AUTHORS.md" "$APPDIR_ROOT/usr/share/doc/smiles2docking/AUTHORS.md"
+cp "$PROJECT_ROOT/CITATION.cff" "$APPDIR_ROOT/usr/share/doc/smiles2docking/CITATION.cff"
+cp "$PROJECT_ROOT/README.md" "$APPDIR_ROOT/usr/share/doc/smiles2docking/README.md"
+cp "$PROJECT_ROOT/docs/DISTRIBUTION.md" "$APPDIR_ROOT/usr/share/doc/smiles2docking/DISTRIBUTION.md"
+cp "$PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md" "$APPDIR_ROOT/usr/share/doc/smiles2docking/THIRD_PARTY_NOTICES.md"
+cp "$PROJECT_ROOT/docs/LINUX_DISTRIBUTION.md" "$APPDIR_ROOT/usr/share/doc/smiles2docking/LINUX_DISTRIBUTION.md"
 
 chmod +x "$APPDIR_ROOT/AppRun"
-chmod +x "$APPDIR_ROOT/usr/bin/SMILES2DockingFULL"
+chmod +x "$APPDIR_ROOT/usr/bin/SMILES2Docking"
 
 tar \
   --exclude='./.git' \
@@ -70,7 +70,7 @@ tar \
 tar -czf "$PORTABLE_ARCHIVE" -C "$RELEASE_ROOT" "$(basename "$APPDIR_ROOT")"
 
 if command -v appimagetool >/dev/null 2>&1; then
-  ARCH=x86_64 appimagetool "$APPDIR_ROOT" "$RELEASE_ROOT/SMILES2DockingFULL-x86_64.AppImage"
+  ARCH=x86_64 appimagetool "$APPDIR_ROOT" "$RELEASE_ROOT/SMILES2Docking-x86_64.AppImage"
 fi
 
 cat <<EOF

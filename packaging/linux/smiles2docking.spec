@@ -68,7 +68,7 @@ for root in plugin_roots:
         openbabel_binaries.append((str(candidate), "openbabel/plugins"))
 
 mopac_binaries = []
-bundle_mopac = os.environ.get("SMILES2DOCKINGFULL_BUNDLE_MOPAC", "").strip().lower() in {"1", "true", "yes", "on"}
+bundle_mopac = os.environ.get("SMILES2DOCKING_BUNDLE_MOPAC", "").strip().lower() in {"1", "true", "yes", "on"}
 if bundle_mopac:
     for binary_dir in (env_prefix / "bin", Path("/usr/bin")):
         candidate = binary_dir / "mopac"
@@ -104,7 +104,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="SMILES2DockingFULL",
+    name="SMILES2Docking",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -118,5 +118,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="SMILES2DockingFULL",
+    name="SMILES2Docking",
 )

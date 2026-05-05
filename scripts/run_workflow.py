@@ -50,8 +50,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--export-mode",
-        choices=("separate_mol2", "separate_sdf", "single_mol2", "single_sdf"),
-        help="Choose whether to export separate MOL2/SDF files or a single MOL2/SDF bundle.",
+        choices=(
+            "separate_mol2",
+            "separate_sdf",
+            "separate_pdbqt",
+            "single_mol2",
+            "single_sdf",
+            "single_pdbqt",
+        ),
+        help="Choose whether to export separate MOL2/SDF/PDBQT files or a single MOL2/SDF/PDBQT bundle.",
     )
     parser.add_argument(
         "--output-name",

@@ -1,4 +1,4 @@
-# MOPAC Methods in SMILES2DockingFULL
+# MOPAC Methods in SMILES2Docking
 
 `PM7` is the default method in the application. It is the recommended starting point for most ligand-preparation workflows.
 

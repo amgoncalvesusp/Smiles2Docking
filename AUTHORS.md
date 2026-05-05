@@ -8,3 +8,6 @@
 
 - Daniel Grajales Ruiz
 - IQ/UNESP
+
+- Nailton Monteiro do Nascimento Júnior
+- IQ/UNESP
