@@ -25,6 +25,29 @@ pyside_datas = []
 pyside_binaries = []
 pyside_hiddenimports = []
 
+# v0.3.0: Dimorphite-DL protonation backend
+dimorphite_datas = collect_data_files("dimorphite_dl")
+dimorphite_hiddenimports = [
+    "dimorphite_dl",
+    "loguru",
+]
+
+# v0.3.0: Meeko PDBQT writer
+meeko_datas = collect_data_files("meeko")
+meeko_hiddenimports = [
+    "meeko",
+]
+
+# v0.3.0: joblib parallel
+joblib_hiddenimports = [
+    "joblib",
+    "joblib.parallel",
+    "joblib._multiprocessing_helpers",
+    "joblib.externals.loky",
+    "joblib.externals.loky.process_executor",
+    "joblib.externals.cloudpickle",
+]
+
 openbabel_bin = env_prefix / "Library" / "bin"
 openbabel_share = env_prefix / "share" / "openbabel"
 openbabel_library_share = env_prefix / "Library" / "share" / "openbabel"
@@ -59,6 +82,9 @@ hiddenimports = sorted(
     set(
         rdkit_hiddenimports
         + pyside_hiddenimports
+        + dimorphite_hiddenimports
+        + meeko_hiddenimports
+        + joblib_hiddenimports
     )
 )
 
@@ -66,7 +92,7 @@ a = Analysis(
     [str(project_root / "scripts" / "run_gui.py")],
     pathex=[str(project_root)],
     binaries=rdkit_binaries + pyside_binaries + openbabel_binaries,
-    datas=rdkit_datas + pyside_datas + project_datas + openbabel_datas,
+    datas=rdkit_datas + pyside_datas + project_datas + openbabel_datas + dimorphite_datas + meeko_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
