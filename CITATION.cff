@@ -7,6 +7,21 @@ authors:
     given-names: "Adriano Marques"
     affiliation: "Universidade de Araraquara - UNIARA"
     email: "amgoncalves@uniara.edu.br"
-repository-code: "C:/Users/adria/OneDrive/Documents/Projetos IA/SMILES2Docking"
+  - family-names: "Grajales Ruiz"
+    given-names: "Daniel"
+    affiliation: "Universidade Estadual Paulista - UNESP"
+repository-code: "https://github.com/amgoncalvesusp/Smiles2Docking"
 license: "GPL-2.0-or-later"
-version: "0.2.0"
+version: "0.3.0"
+date-released: "2026-05-27"
+keywords:
+  - SMILES
+  - ligand-preparation
+  - molecular-docking
+  - Dimorphite-DL
+  - Meeko
+  - AutoDock-Vina
+  - PDBQT
+  - MOPAC
+  - PM7
+  - RDKit
