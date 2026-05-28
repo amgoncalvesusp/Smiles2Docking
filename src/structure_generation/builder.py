@@ -11,15 +11,6 @@ class StructureGenerationError(Exception):
     """Raised when 3D coordinate generation fails."""
 
 
-def _mopac_settings(settings: dict[str, Any]) -> dict[str, Any] | None:
-    raw = settings.get("mopac")
-    if not isinstance(raw, dict):
-        return None
-    if not raw.get("enabled", False):
-        return None
-    return raw
-
-
 @dataclass(slots=True)
 class StructureBuilder:
     settings: dict[str, Any]
@@ -30,42 +21,21 @@ class StructureBuilder:
             raise StructureGenerationError(f"Unable to parse protonated SMILES for {access_code!r}")
 
         molecule = Chem.AddHs(molecule)
-        params = AllChem.ETKDGv3()
-        params.randomSeed = int(self.settings.get("embed_seed", 61453))
-
         max_attempts = int(self.settings.get("max_attempts", 3))
-        for _ in range(max_attempts):
-            working_copy = Chem.Mol(molecule)
-            if AllChem.EmbedMolecule(working_copy, params) == 0:
-                self._optimize_geometry(working_copy, access_code)
-                working_copy = self._refine_with_mopac(working_copy, access_code)
-                working_copy.SetProp("_Name", access_code)
-                return working_copy
+        embedding_failures: list[str] = []
+        for strategy_name, parameter_factory, attempts in self._embedding_strategies(max_attempts):
+            for _ in range(attempts):
+                working_copy = Chem.Mol(molecule)
+                params = parameter_factory()
+                if AllChem.EmbedMolecule(working_copy, params) == 0:
+                    self._optimize_geometry(working_copy, access_code)
+                    working_copy.SetProp("_Name", access_code)
+                    working_copy.SetProp("embedding_strategy", strategy_name)
+                    return working_copy
+            embedding_failures.append(strategy_name)
 
-        raise StructureGenerationError(f"3D embedding failed for {access_code!r}")
-
-    def _refine_with_mopac(self, molecule: Chem.Mol, access_code: str) -> Chem.Mol:
-        mopac_settings = _mopac_settings(self.settings)
-        if mopac_settings is None:
-            return molecule
-        try:
-            from src.quantum.mopac_adapter import MopacError, MopacOptimizer
-        except ImportError:
-            molecule.SetProp("mopac_status", "module_unavailable")
-            return molecule
-        try:
-            result = MopacOptimizer(mopac_settings).optimize(molecule, access_code)
-        except MopacError as exc:
-            if mopac_settings.get("fail_on_error", False):
-                raise StructureGenerationError(
-                    f"MOPAC refinement failed for {access_code!r}: {exc}"
-                ) from exc
-            molecule.SetProp("mopac_status", "failed")
-            molecule.SetProp("mopac_error", str(exc))
-            return molecule
-        refined = result.molecule
-        refined.SetProp("mopac_status", "completed")
-        return refined
+        details = ", ".join(embedding_failures) if embedding_failures else "no embedding strategy available"
+        raise StructureGenerationError(f"3D embedding failed for {access_code!r}. Attempts: {details}")
 
     def _optimize_geometry(self, molecule: Chem.Mol, access_code: str) -> None:
         if not self.settings.get("optimize_geometry", True):
@@ -126,3 +96,25 @@ class StructureBuilder:
         raise StructureGenerationError(
             f"Unsupported force field '{force_field_name}'. Supported values: mmff94, mmff94s, uff."
         )
+
+    def _embedding_strategies(self, max_attempts: int) -> list[tuple[str, Any, int]]:
+        seed = int(self.settings.get("embed_seed", 61453))
+        return [
+            ("etkdg", lambda: self._embed_params(seed=seed, use_random_coords=False, small_ring=False), max_attempts),
+            (
+                "etkdg_random_coords",
+                lambda: self._embed_params(seed=seed, use_random_coords=True, small_ring=False),
+                max_attempts,
+            ),
+            (
+                "sr_etkdg_random_coords",
+                lambda: self._embed_params(seed=-1, use_random_coords=True, small_ring=True),
+                max(1, max_attempts),
+            ),
+        ]
+
+    def _embed_params(self, seed: int, use_random_coords: bool, small_ring: bool) -> Any:
+        params = AllChem.srETKDGv3() if small_ring else AllChem.ETKDGv3()
+        params.randomSeed = seed
+        params.useRandomCoords = use_random_coords
+        return params

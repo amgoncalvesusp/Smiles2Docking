@@ -33,6 +33,9 @@ rdkit_hiddenimports = sorted(
 hiddenimports = sorted(
     set(
         rdkit_hiddenimports
+        + collect_submodules("meeko")
+        + collect_submodules("scipy")
+        + collect_submodules("dimorphite_dl")
         + [
             "openpyxl",
             "openpyxl.cell",
@@ -43,11 +46,15 @@ hiddenimports = sorted(
             "yaml",
             "PIL",
             "matplotlib",
+            "meeko",
+            "scipy",
+            "gemmi",
+            "dimorphite_dl",
         ]
     )
 )
 
-datas = collect_data_files("rdkit") + [
+datas = collect_data_files("rdkit") + collect_data_files("meeko") + [
     (str(project_root / "assets"), "assets"),
     (str(project_root / "config"), "config"),
     (str(project_root / "docs"), "docs"),
@@ -62,7 +69,7 @@ datas = collect_data_files("rdkit") + [
     (str(pyside_root / "plugins" / "platforms"), "platforms"),
 ]
 
-binaries = collect_dynamic_libs("rdkit")
+binaries = collect_dynamic_libs("rdkit") + collect_dynamic_libs("scipy") + collect_dynamic_libs("gemmi")
 
 excludes = [
     "tests",

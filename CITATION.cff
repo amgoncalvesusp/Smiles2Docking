@@ -12,8 +12,8 @@ authors:
     affiliation: "Universidade Estadual Paulista - UNESP"
 repository-code: "https://github.com/amgoncalvesusp/Smiles2Docking"
 license: "GPL-2.0-or-later"
-version: "0.3.0"
-date-released: "2026-05-27"
+version: "1.2"
+date-released: "2026-05-28"
 keywords:
   - SMILES
   - ligand-preparation

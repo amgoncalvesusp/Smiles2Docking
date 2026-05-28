@@ -17,14 +17,32 @@ class Mol2ExportError(Exception):
     """Raised when structure export fails."""
 
 
+EXPORT_FORMAT_BY_MODE = {
+    "separate_mol2": "mol2",
+    "single_mol2": "mol2",
+    "separate_sdf": "sdf",
+    "single_sdf": "sdf",
+    "separate_pdbqt": "pdbqt",
+    "single_pdbqt": "pdbqt",
+}
+
+SINGLE_FILE_MODES = {"single_mol2", "single_sdf", "single_pdbqt"}
+
+
 @dataclass(slots=True)
 class StructureExporter:
     export_settings: dict[str, Any]
     protonation_settings: dict[str, Any]
     converter: OpenBabelConverter = field(init=False)
+    pdbqt_writer: PDBQTWriter | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self.converter = OpenBabelConverter(self.protonation_settings)
+
+    def _ensure_pdbqt_writer(self) -> PDBQTWriter:
+        if self.pdbqt_writer is None:
+            self.pdbqt_writer = PDBQTWriter(dict(self.export_settings.get("pdbqt", {})))
+        return self.pdbqt_writer
 
     @property
     def mode(self) -> str:
@@ -32,18 +50,11 @@ class StructureExporter:
 
     @property
     def export_format(self) -> str:
-        if self.mode in {"single_sdf", "separate_sdf"}:
-            return "sdf"
-        if self.mode in {"single_pdbqt", "separate_pdbqt"}:
-            return "pdbqt"
-        return "mol2"
+        return EXPORT_FORMAT_BY_MODE.get(self.mode, "mol2")
 
     @property
     def uses_batch_export(self) -> bool:
-        return self.mode in {"single_mol2", "single_sdf", "single_pdbqt"}
-
-    def _pdbqt_writer(self) -> PDBQTWriter:
-        return PDBQTWriter(self.export_settings.get("pdbqt", {}))
+        return self.mode in SINGLE_FILE_MODES
 
     def write(self, molecule: Chem.Mol, access_code: str) -> list[Path]:
         if self.uses_batch_export:
@@ -60,10 +71,7 @@ class StructureExporter:
             return [output_path]
 
         if self.mode == "separate_pdbqt":
-            try:
-                self._pdbqt_writer().write_one(molecule, output_path, access_code)
-            except PDBQTExportError as exc:
-                raise Mol2ExportError(str(exc)) from exc
+            self._write_pdbqt_one(molecule, output_path, access_code)
             return [output_path]
 
         with self._temporary_dir(output_dir) as tmp_path:
@@ -104,10 +112,7 @@ class StructureExporter:
         if self.mode == "single_pdbqt":
             output_path = output_dir / f"{bundle_name}.pdbqt"
             self._ensure_writable(output_path)
-            try:
-                self._pdbqt_writer().write_batch(molecules, output_path)
-            except PDBQTExportError as exc:
-                raise Mol2ExportError(str(exc)) from exc
+            self._write_pdbqt_batch(molecules, output_path, bundle_name)
             return [output_path]
 
         raise Mol2ExportError(f"Unsupported export mode: {self.mode}")
@@ -130,6 +135,20 @@ class StructureExporter:
         except Exception as exc:
             raise Mol2ExportError(f"Could not export {label!r} to MOL2: {exc}") from exc
 
+    def _write_pdbqt_one(self, molecule: Chem.Mol, output_pdbqt: Path, label: str) -> None:
+        try:
+            self._ensure_pdbqt_writer().write_one(molecule, output_pdbqt, label)
+        except PDBQTExportError as exc:
+            raise Mol2ExportError(f"Could not export {label!r} to PDBQT: {exc}") from exc
+
+    def _write_pdbqt_batch(
+        self, molecules: list[tuple[str, Chem.Mol]], output_pdbqt: Path, label: str
+    ) -> None:
+        try:
+            self._ensure_pdbqt_writer().write_batch(molecules, output_pdbqt)
+        except PDBQTExportError as exc:
+            raise Mol2ExportError(f"Could not export {label!r} to PDBQT: {exc}") from exc
+
     def _ensure_writable(self, output_path: Path) -> None:
         if output_path.exists() and not self.export_settings.get("overwrite", True):
             raise Mol2ExportError(f"Output file already exists: {output_path}")
@@ -149,12 +168,8 @@ class StructureExporter:
         safe_name = self._sanitize_filename(access_code)
         if prefix:
             safe_name = f"{self._sanitize_filename(prefix)}_{safe_name}"
-        suffix_by_mode = {
-            "separate_sdf": ".sdf",
-            "separate_mol2": ".mol2",
-            "separate_pdbqt": ".pdbqt",
-        }
-        suffix = suffix_by_mode.get(self.mode, ".mol2")
+        suffix_by_format = {"sdf": ".sdf", "pdbqt": ".pdbqt", "mol2": ".mol2"}
+        suffix = suffix_by_format[self.export_format]
         return output_dir / f"{safe_name}{suffix}"
 
     def _temporary_dir(self, output_dir: Path) -> "_TemporaryDirectory":

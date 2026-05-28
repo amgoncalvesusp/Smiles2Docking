@@ -39,6 +39,9 @@ SMILES2DOCKING/
 Scripts_Daniel/
 temp_skill_build/
 
+# --- Manuscript / article drafts (private, never public) ---
+Artigo/
+
 # --- Logs / scratch files ---
 *.log
 MOPAC Error message.txt

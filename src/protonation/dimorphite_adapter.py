@@ -26,7 +26,7 @@ class DimorphiteProtonator:
             return smiles
 
         try:
-            from dimorphite_dl import DimorphiteDL
+            import dimorphite_dl as _dd
         except ImportError as exc:
             raise ProtonationError(
                 "dimorphite_dl is not installed. Install it via `pip install dimorphite-dl` "
@@ -37,17 +37,12 @@ class DimorphiteProtonator:
         ph_tol = float(self.settings.get("ph_tolerance", 1.0))
         max_variants = int(self.settings.get("max_variants", 1))
         keep_label = str(self.settings.get("variant_selection", "first")).lower()
-
-        engine = DimorphiteDL(
-            min_ph=ph - ph_tol,
-            max_ph=ph + ph_tol,
-            max_variants=max_variants,
-            label_states=False,
-            pka_precision=float(self.settings.get("pka_precision", 1.0)),
-        )
+        pka_precision = float(self.settings.get("pka_precision", 1.0))
 
         try:
-            variants = engine.protonate(smiles)
+            variants = self._run_dimorphite(_dd, smiles, ph, ph_tol, max_variants, pka_precision)
+        except ProtonationError:
+            raise
         except Exception as exc:
             raise ProtonationError(
                 f"Dimorphite-DL failed to protonate {access_code!r}: {exc}"
@@ -61,6 +56,49 @@ class DimorphiteProtonator:
         else:
             chosen = variants[0]
         return chosen
+
+    @staticmethod
+    def _run_dimorphite(
+        module: Any,
+        smiles: str,
+        ph: float,
+        ph_tol: float,
+        max_variants: int,
+        pka_precision: float,
+    ) -> list[str]:
+        """Run Dimorphite-DL across both the v2 (function) and v1 (class) APIs."""
+        ph_min = ph - ph_tol
+        ph_max = ph + ph_tol
+
+        # Dimorphite-DL v2.x: module-level protonate_smiles() returning list[str]
+        func = getattr(module, "protonate_smiles", None)
+        if callable(func):
+            result = func(
+                smiles,
+                ph_min=ph_min,
+                ph_max=ph_max,
+                precision=pka_precision,
+                max_variants=max_variants,
+                label_states=False,
+            )
+            return list(result)
+
+        # Dimorphite-DL v1.x: DimorphiteDL class with .protonate()
+        engine_cls = getattr(module, "DimorphiteDL", None)
+        if engine_cls is not None:
+            engine = engine_cls(
+                min_ph=ph_min,
+                max_ph=ph_max,
+                max_variants=max_variants,
+                label_states=False,
+                pka_precision=pka_precision,
+            )
+            return list(engine.protonate(smiles))
+
+        raise ProtonationError(
+            "Unsupported dimorphite_dl version: neither protonate_smiles() nor "
+            "DimorphiteDL is available."
+        )
 
 
 def _abs_formal_charge(smiles: str, access_code: str) -> int:

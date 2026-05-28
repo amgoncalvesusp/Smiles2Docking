@@ -9,6 +9,11 @@ env_prefix = Path(sys.prefix)
 
 rdkit_datas, rdkit_binaries, rdkit_hiddenimports = collect_all("rdkit")
 matplotlib_datas, matplotlib_binaries, matplotlib_hiddenimports = collect_all("matplotlib")
+# v1.2: protonation (dimorphite) + PDBQT export (meeko + transitive scipy/gemmi)
+dimorphite_datas, dimorphite_binaries, dimorphite_hiddenimports = collect_all("dimorphite_dl")
+meeko_datas, meeko_binaries, meeko_hiddenimports = collect_all("meeko")
+scipy_datas, scipy_binaries, scipy_hiddenimports = collect_all("scipy")
+gemmi_datas, gemmi_binaries, gemmi_hiddenimports = collect_all("gemmi")
 pyside_datas = []
 pyside_binaries = []
 pyside_hiddenimports = []
@@ -65,6 +70,10 @@ hiddenimports = sorted(
         rdkit_hiddenimports
         + matplotlib_hiddenimports
         + pyside_hiddenimports
+        + dimorphite_hiddenimports
+        + meeko_hiddenimports
+        + scipy_hiddenimports
+        + gemmi_hiddenimports
         + ["matplotlib.backends.backend_pdf"]
     )
 )
@@ -72,8 +81,10 @@ hiddenimports = sorted(
 a = Analysis(
     [str(project_root / "scripts" / "run_gui.py")],
     pathex=[str(project_root)],
-    binaries=rdkit_binaries + matplotlib_binaries + pyside_binaries + openbabel_binaries,
-    datas=rdkit_datas + matplotlib_datas + pyside_datas + project_datas + openbabel_datas,
+    binaries=rdkit_binaries + matplotlib_binaries + pyside_binaries + openbabel_binaries
+    + dimorphite_binaries + meeko_binaries + scipy_binaries + gemmi_binaries,
+    datas=rdkit_datas + matplotlib_datas + pyside_datas + project_datas + openbabel_datas
+    + dimorphite_datas + meeko_datas + scipy_datas + gemmi_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

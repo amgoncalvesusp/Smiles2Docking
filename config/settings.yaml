@@ -8,17 +8,35 @@ input:
 processing:
   preserve_kekule: true
   strict_fragment_disambiguation: true
+  skip_undefined_stereo: false
+  strict_stereochemistry: false
+  single_undefined_stereocenter_only: false
+  max_stereochemistry_variants: 16
+  allow_post_mopac_charge_rescue: true
 
 protonation:
   enabled: true
-  backend: dimorphite          # dimorphite | openbabel | none
+  backend: dimorphite        # dimorphite | openbabel | none
   ph: 7.4
-  ph_tolerance: 1.0            # used by dimorphite
-  max_variants: 1              # used by dimorphite
-  variant_selection: first     # first | most_neutral (used by dimorphite)
-  pka_precision: 1.0           # used by dimorphite
   obabel_binary: obabel
-  temp_dir: ""                 # blank => resolved to user cache dir
+  temp_dir: data/intermediate/tmp/protonation
+  # Dimorphite-DL backend parameters
+  ph_tolerance: 1.0
+  max_variants: 1
+  variant_selection: first   # first | most_neutral
+  pka_precision: 1.0
+
+pm7:
+  enabled: true
+  method: PM7
+  binary_name: mopac
+  binary_path: ""
+  use_mmok: true
+  use_eps: true
+  eps: 78.39
+  preserve_files: false
+  preserved_files_dir: ""
+  temp_dir: data/intermediate/tmp/mopac
 
 structure_generation:
   embed_seed: 61453
@@ -30,32 +48,19 @@ structure_generation:
     - uff
   max_optimization_iterations: 1000
   allow_unoptimized_output: false
-  # Semi-empirical (MOPAC PM7) refinement: opt-in only.
-  # Significantly slower than force fields; use for curated small sets.
-  mopac:
-    enabled: false
-    method: PM7
-    binary: mopac
-    keywords: "PM7 PRECISE GNORM=0.01"
-    max_seconds: 120
-
-parallel:
-  enabled: true
-  n_jobs: -1                   # -1 => all cores; 1 => sequential
-  backend: loky                # joblib backend
-  batch_size: auto
 
 export:
-  output_dir: ""               # blank => resolved to user data dir
+  output_dir: data/processed
   overwrite: true
-  temp_dir: ""                 # blank => resolved to user cache dir
-  mode: separate_mol2          # separate_mol2 | single_mol2 | separate_sdf | single_sdf | separate_pdbqt | single_pdbqt
+  temp_dir: data/intermediate/tmp/export
+  mode: separate_mol2
   bundle_basename: ""
+  # Meeko-based PDBQT export options (used for *_pdbqt modes)
   pdbqt:
-    rigid: false               # if true: write all bonds as non-rotatable
+    rigid: false
     add_hydrogens: true
     keep_nonpolar_hydrogens: false
-    charge_model: gasteiger    # gasteiger | none
+    charge_model: gasteiger
 
 reporting:
   report_dir: data/reports

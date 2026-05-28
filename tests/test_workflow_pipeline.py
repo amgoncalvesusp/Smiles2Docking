@@ -68,7 +68,7 @@ def test_run_workflow_reports_undefined_stereochemistry_records(
 ) -> None:
     monkeypatch.setattr(pipeline, "SpreadsheetSource", _FakeSource)
     monkeypatch.setattr(pipeline, "SmilesCleaner", _FakeCleaner)
-    monkeypatch.setattr(pipeline, "OpenBabelProtonator", _FakeProtonator)
+    monkeypatch.setattr(pipeline, "build_protonator", lambda settings: _FakeProtonator(settings))
     monkeypatch.setattr(pipeline, "StructureBuilder", _FakeBuilder)
     monkeypatch.setattr(pipeline, "StructureExporter", _FakeExporter)
 
@@ -140,7 +140,7 @@ class _SkipFilterSource:
 def test_run_workflow_skips_undefined_stereochemistry_before_protonation(monkeypatch) -> None:
     monkeypatch.setattr(pipeline, "SpreadsheetSource", _SkipFilterSource)
     monkeypatch.setattr(pipeline, "SmilesCleaner", _FakeCleaner)
-    monkeypatch.setattr(pipeline, "OpenBabelProtonator", _FakeProtonator)
+    monkeypatch.setattr(pipeline, "build_protonator", lambda settings: _FakeProtonator(settings))
     monkeypatch.setattr(pipeline, "StructureBuilder", _FakeBuilder)
     monkeypatch.setattr(pipeline, "StructureExporter", _FakeExporter)
     _FakeProtonator.calls = []

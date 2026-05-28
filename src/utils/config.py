@@ -1,26 +1,41 @@
 from __future__ import annotations
 
-import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from src.utils.app_paths import is_appimage, is_frozen, user_data_dir
+from src.utils.app_paths import is_appimage, is_frozen, user_cache_dir, user_data_dir, user_log_dir
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SETTINGS_PATH = PROJECT_ROOT / "config" / "settings.yaml"
 
-WRITABLE_PATH_KEYS: tuple[tuple[str, str, str], ...] = (
-    ("export", "output_dir", "processed"),
-    ("export", "temp_dir", "intermediate/export"),
-    ("reporting", "report_dir", "reports"),
-    ("figures", "output_dir", "figures"),
-    ("logging", "log_dir", "logs"),
-    ("protonation", "temp_dir", "intermediate/protonation"),
-)
+# Writable path keys redirected to per-user directories on read-only installs
+# (PyInstaller frozen builds, Linux AppImage). Keyed by (section, key) -> kind.
+_WRITABLE_PATH_REDIRECTS = {
+    ("export", "output_dir"): "processed",
+    ("export", "temp_dir"): "export_tmp",
+    ("reporting", "report_dir"): "reports",
+    ("figures", "output_dir"): "figures",
+    ("logging", "log_dir"): "logs",
+    ("protonation", "temp_dir"): "protonation_tmp",
+    ("pm7", "temp_dir"): "mopac_tmp",
+    ("pm7", "preserved_files_dir"): "mopac_files",
+}
+
+
+def _install_is_read_only() -> bool:
+    return is_frozen() or is_appimage()
+
+
+def _user_base_for(kind: str) -> Path:
+    if kind == "logs":
+        return user_log_dir()
+    if kind in {"export_tmp", "protonation_tmp", "mopac_tmp"}:
+        return user_cache_dir() / "intermediate" / kind.replace("_tmp", "")
+    return user_data_dir() / kind
 
 
 def load_settings(config_path: str | None = None) -> dict[str, Any]:
@@ -40,49 +55,34 @@ def merge_settings(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str,
     return merged
 
 
-def _is_writable_location(path: Path) -> bool:
-    candidate = path if path.exists() else path.parent
-    while not candidate.exists() and candidate != candidate.parent:
-        candidate = candidate.parent
-    return os.access(str(candidate), os.W_OK)
-
-
 def resolve_project_path(path_value: str) -> str:
     path = Path(path_value)
-    if path.is_absolute():
-        return str(path)
-
-    if is_frozen() or is_appimage():
-        return str(user_data_dir() / path)
-
-    candidate = PROJECT_ROOT / path
-    if _is_writable_location(candidate):
-        return str(candidate)
-    return str(user_data_dir() / path)
+    return str(path if path.is_absolute() else PROJECT_ROOT / path)
 
 
 def resolve_settings_paths(settings: dict[str, Any]) -> dict[str, Any]:
-    input_path = settings.get("input", {}).get("file_path")
-    if input_path:
-        input_obj = Path(input_path)
-        if not input_obj.is_absolute():
-            settings.setdefault("input", {})["file_path"] = str(PROJECT_ROOT / input_obj)
-
-    for section, key, fallback_subdir in WRITABLE_PATH_KEYS:
-        section_dict = settings.setdefault(section, {})
-        value = section_dict.get(key)
-        if value:
-            resolved = resolve_project_path(value)
+    path_settings = (
+        ("input", "file_path"),
+        ("export", "output_dir"),
+        ("export", "temp_dir"),
+        ("reporting", "report_dir"),
+        ("figures", "output_dir"),
+        ("logging", "log_dir"),
+        ("protonation", "temp_dir"),
+        ("pm7", "temp_dir"),
+        ("pm7", "binary_path"),
+        ("pm7", "preserved_files_dir"),
+    )
+    read_only_install = _install_is_read_only()
+    for section, key in path_settings:
+        value = settings.get(section, {}).get(key)
+        if not value:
+            continue
+        redirect_kind = _WRITABLE_PATH_REDIRECTS.get((section, key))
+        if read_only_install and redirect_kind is not None and not Path(value).is_absolute():
+            settings[section][key] = str(_user_base_for(redirect_kind))
         else:
-            resolved = str(user_data_dir() / fallback_subdir)
-        section_dict[key] = resolved
-        try:
-            Path(resolved).mkdir(parents=True, exist_ok=True)
-        except OSError:
-            fallback = user_data_dir() / fallback_subdir
-            fallback.mkdir(parents=True, exist_ok=True)
-            section_dict[key] = str(fallback)
-
+            settings[section][key] = resolve_project_path(value)
     export_output_dir = settings.get("export", {}).get("output_dir")
     if export_output_dir:
         if settings.get("reporting", {}).get("use_output_dir", False):

@@ -38,6 +38,14 @@ meeko_hiddenimports = [
     "meeko",
 ]
 
+# v1.2: Meeko transitive deps (structure I/O + geometry)
+scipy_binaries = collect_dynamic_libs("scipy")
+gemmi_binaries = collect_dynamic_libs("gemmi")
+meeko_dep_hiddenimports = [
+    "scipy",
+    "gemmi",
+]
+
 # v0.3.0: joblib parallel
 joblib_hiddenimports = [
     "joblib",
@@ -84,6 +92,7 @@ hiddenimports = sorted(
         + pyside_hiddenimports
         + dimorphite_hiddenimports
         + meeko_hiddenimports
+        + meeko_dep_hiddenimports
         + joblib_hiddenimports
     )
 )
@@ -91,7 +100,7 @@ hiddenimports = sorted(
 a = Analysis(
     [str(project_root / "scripts" / "run_gui.py")],
     pathex=[str(project_root)],
-    binaries=rdkit_binaries + pyside_binaries + openbabel_binaries,
+    binaries=rdkit_binaries + pyside_binaries + openbabel_binaries + scipy_binaries + gemmi_binaries,
     datas=rdkit_datas + pyside_datas + project_datas + openbabel_datas + dimorphite_datas + meeko_datas,
     hiddenimports=hiddenimports,
     hookspath=[],

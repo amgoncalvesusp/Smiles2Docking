@@ -17,6 +17,10 @@ def resolve_runtime_path(*parts: str) -> Path:
     return runtime_root().joinpath(*parts)
 
 
+def get_mopac_executable_path() -> str:
+    return str(resolve_runtime_path("vendor", "mopac", "MOPAC.exe"))
+
+
 def _first_existing_path(*candidates: Path) -> Path | None:
     for candidate in candidates:
         if candidate.exists():
@@ -35,8 +39,20 @@ def _prepend_env_path(env: dict[str, str], key: str, *paths: Path) -> None:
         env[key] = os.pathsep.join(ordered_paths)
 
 
-def get_mopac_executable_path() -> str:
-    return str(resolve_runtime_path("vendor", "mopac", "MOPAC.exe"))
+def bundled_obabel_binary(default_binary: str = "obabel") -> str:
+    candidates = (
+        resolve_runtime_path("openbabel", "obabel.exe"),
+        resolve_runtime_path("openbabel", "obabel"),
+        resolve_runtime_path("openbabel", "bin", "obabel"),
+        resolve_runtime_path("vendor", "openbabel", "obabel.exe"),
+        resolve_runtime_path("vendor", "openbabel", "obabel"),
+        resolve_runtime_path("vendor", "openbabel", "bin", "obabel"),
+        resolve_runtime_path("Library", "bin", "obabel.exe"),
+    )
+    candidate = _first_existing_path(*candidates)
+    if candidate is not None:
+        return str(candidate)
+    return default_binary
 
 
 def bundled_mopac_binary(configured_path: str | None = None, default_binary: str = "mopac") -> str:
@@ -50,40 +66,32 @@ def bundled_mopac_binary(configured_path: str | None = None, default_binary: str
     ]
     if configured_path:
         candidates.insert(0, Path(configured_path))
+
     candidate = _first_existing_path(*candidates)
     if candidate is not None:
         return str(candidate)
     return str(candidates[0])
 
 
-def bundled_obabel_binary(default_binary: str = "obabel") -> str:
-    candidates = (
-        resolve_runtime_path("openbabel", "obabel.exe"),
-        resolve_runtime_path("openbabel", "obabel"),
-        resolve_runtime_path("openbabel", "bin", "obabel"),
-        resolve_runtime_path("Library", "bin", "obabel.exe"),
-    )
-    candidate = _first_existing_path(*candidates)
-    if candidate is not None:
-        return str(candidate)
-    return default_binary
-
-
 def openbabel_runtime_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(base_env or os.environ)
-    openbabel_data_dir = resolve_runtime_path("openbabel", "data")
-    openbabel_gui_data_dir = resolve_runtime_path("openbabel", "gui-data")
-    openbabel_bin_dir = resolve_runtime_path("openbabel")
-    openbabel_plugins_dir = _first_existing_path(
-        resolve_runtime_path("openbabel", "plugins"),
+    openbabel_root = _first_existing_path(
         resolve_runtime_path("openbabel"),
+        resolve_runtime_path("vendor", "openbabel"),
+    ) or resolve_runtime_path("openbabel")
+    openbabel_data_dir = openbabel_root / "data"
+    openbabel_gui_data_dir = openbabel_root / "gui-data"
+    openbabel_bin_dir = openbabel_root
+    openbabel_plugins_dir = _first_existing_path(
+        openbabel_root / "plugins",
+        openbabel_root,
     )
     openbabel_runtime_bin_dir = _first_existing_path(
-        resolve_runtime_path("openbabel", "bin"),
+        openbabel_root / "bin",
         openbabel_bin_dir,
     )
     openbabel_library_dir = _first_existing_path(
-        resolve_runtime_path("openbabel", "lib"),
+        openbabel_root / "lib",
         openbabel_bin_dir,
     )
     if openbabel_data_dir.exists():
