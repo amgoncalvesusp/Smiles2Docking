@@ -62,6 +62,12 @@ export:
     keep_nonpolar_hydrogens: false
     charge_model: gasteiger
 
+parallel:
+  enabled: false             # true to fan records across worker processes
+  n_jobs: -1                 # -1 = all CPUs; 1 = sequential; N = N workers
+  backend: loky              # joblib backend (loky isolates workers)
+  batch_size: auto           # joblib batch_size
+
 reporting:
   report_dir: data/reports
   use_output_dir: true

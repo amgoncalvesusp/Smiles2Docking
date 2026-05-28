@@ -63,6 +63,7 @@ class RunReport:
     fastest_seconds: float | None = None
     slowest_seconds: float | None = None
     throughput_molecules_per_minute: float | None = None
+    n_jobs_used: int | None = None
 
 
 @dataclass(slots=True)

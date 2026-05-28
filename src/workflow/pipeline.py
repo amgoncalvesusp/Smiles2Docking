@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import logging
+import os
 import statistics
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from rdkit import Chem
 
 from src.database.spreadsheet_source import SpreadsheetSource, SpreadsheetSourceError
 from src.export.mol2_writer import Mol2ExportError, StructureExporter
@@ -33,6 +37,206 @@ PROGRESS_TEXT = {
     "en": {"processing": "Processing", "row": "row", "completed": "Completed"},
     "pt": {"processing": "Processando", "row": "linha", "completed": "Concluido"},
 }
+
+# Per-variant errors that downgrade a single variant to a logged failure
+# instead of aborting the record or the run.
+VARIANT_ERRORS = (
+    OpenBabelError,
+    ProtonationError,
+    StructureGenerationError,
+    StructureValidationError,
+    Mol2ExportError,
+    SpreadsheetSourceError,
+    MopacError,
+)
+
+
+@dataclass(slots=True)
+class _VariantResult:
+    """Picklable outcome of preparing a single stereochemistry variant."""
+
+    access_code: str
+    seconds: float = 0.0
+    molecule: Any | None = None
+    pm7_used: bool = False
+    preserved_files: list[str] = field(default_factory=list)
+    force_field: str | None = None
+    mopac_method: str | None = None
+    validation_rescue: str | None = None
+    error: str | None = None
+
+
+@dataclass(slots=True)
+class _RecordOutcome:
+    """All report deltas produced by preparing one input record.
+
+    Built in a worker process (parallel) or inline (sequential) and then
+    replayed against the shared RunReport in the main thread by
+    ``_apply_outcome``. Holds no live handles so it survives pickling.
+    """
+
+    source_row: int
+    access_code: str
+    missing_access_code: bool = False
+    cleaned: bool = False
+    salts_removed: bool = False
+    undefined_skip_message: str | None = None
+    undefined_center_count: int = 0
+    stereo_issue: dict[str, Any] | None = None
+    stereo_enumerated: bool = False
+    stereo_skipped: bool = False
+    stereo_undefined_record: bool = False
+    invalid_smiles: bool = False
+    record_error: str | None = None
+    ambiguous_error: str | None = None
+    no_variants_reason: str | None = None
+    variant_count: int = 0
+    variants: list[_VariantResult] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class _Components:
+    cleaner: SmilesCleaner
+    validator: StructureValidator
+    protonator: Any
+    builder: StructureBuilder
+    pm7_optimizer: MopacOptimizer | None
+
+
+def _build_components(settings: dict[str, Any]) -> _Components:
+    pm7_settings = dict(settings.get("pm7", {}))
+    if pm7_settings.get("enabled", False) and pm7_settings.get("preserve_files", False):
+        pm7_settings["preserved_files_dir"] = _resolve_pm7_preserved_files_dir(settings)
+    pm7_optimizer = MopacOptimizer(pm7_settings) if pm7_settings.get("enabled", False) else None
+    return _Components(
+        cleaner=SmilesCleaner(settings["processing"]),
+        validator=StructureValidator(settings["processing"]),
+        protonator=build_protonator(settings["protonation"]),
+        builder=StructureBuilder(settings["structure_generation"]),
+        pm7_optimizer=pm7_optimizer,
+    )
+
+
+def _resolve_n_jobs(settings: dict[str, Any]) -> int:
+    """Effective worker count. Returns 1 (sequential) unless parallel enabled."""
+    parallel = settings.get("parallel", {})
+    if not isinstance(parallel, dict) or not parallel.get("enabled", False):
+        return 1
+    try:
+        requested = int(parallel.get("n_jobs", -1))
+    except (TypeError, ValueError):
+        return 1
+    if requested == 0:
+        return 1
+    if requested < 0:
+        return max(1, os.cpu_count() or 1)
+    return requested
+
+
+def _prepare_record(record: Any, components: _Components) -> _RecordOutcome:
+    """Pure record preparation: clean, validate, protonate, build 3D, PM7.
+
+    Performs no logging and no file IO so it is safe to run in a worker
+    process. Export and report mutation happen in the main thread via
+    ``_apply_outcome``.
+    """
+    outcome = _RecordOutcome(source_row=record.source_row, access_code=record.access_code)
+
+    if not record.access_code:
+        outcome.missing_access_code = True
+        return outcome
+
+    cleaner = components.cleaner
+    validator = components.validator
+    protonator = components.protonator
+    builder = components.builder
+    pm7_optimizer = components.pm7_optimizer
+
+    try:
+        cleaned = cleaner.clean_record(record)
+        outcome.cleaned = True
+        outcome.salts_removed = bool(cleaned.salts_removed)
+
+        undefined_stereo_analysis = validator.analyze_undefined_stereochemistry(
+            cleaned.cleaned_smiles, record.access_code
+        )
+        if undefined_stereo_analysis.should_skip:
+            skip_message = f"Skipped: undefined stereochemistry — {cleaned.cleaned_smiles}"
+            outcome.undefined_skip_message = skip_message
+            outcome.undefined_center_count = undefined_stereo_analysis.undefined_center_count
+            return outcome
+
+        validated_input_smiles = validator.validate_input_smiles(cleaned.cleaned_smiles, record.access_code)
+        stereochemistry_resolution = validator.resolve_input_variants(validated_input_smiles, record.access_code)
+        _capture_stereochemistry_resolution(outcome, stereochemistry_resolution, record)
+        variants = stereochemistry_resolution.variants
+        if not variants:
+            outcome.no_variants_reason = (
+                stereochemistry_resolution.reason
+                or "Undefined stereochemistry policy rejected the record."
+            )
+            return outcome
+        outcome.variant_count = len(variants)
+
+        for variant in variants:
+            outcome.variants.append(_prepare_variant(variant, components, pm7_optimizer))
+    except InvalidSmilesError as exc:
+        outcome.invalid_smiles = True
+        outcome.record_error = str(exc)
+    except AmbiguousFragmentError as exc:
+        outcome.ambiguous_error = str(exc)
+    except (StructureValidationError, SpreadsheetSourceError) as exc:
+        outcome.record_error = str(exc)
+
+    return outcome
+
+
+def _prepare_variant(variant: Any, components: _Components, pm7_optimizer: MopacOptimizer | None) -> _VariantResult:
+    validator = components.validator
+    protonator = components.protonator
+    builder = components.builder
+    result = _VariantResult(access_code=variant.access_code)
+    variant_start = time.perf_counter()
+    try:
+        protonated_smiles = protonator.protonate_smiles(variant.smiles, variant.access_code)
+        protonated_smiles = validator.validate_protonated_smiles(protonated_smiles, variant.access_code)
+        expected_charge = validator.formal_charge_from_smiles(protonated_smiles, variant.access_code)
+        molecule_3d = builder.build_3d(protonated_smiles, variant.access_code)
+        if pm7_optimizer is not None:
+            pm7_result = pm7_optimizer.optimize(molecule_3d, variant.access_code)
+            molecule_3d = validator.validate_final_molecule(
+                pm7_result.molecule,
+                variant.access_code,
+                stage="post_pm7",
+                expected_charge=pm7_result.charge,
+            )
+            result.pm7_used = True
+            result.preserved_files = list(pm7_result.preserved_files)
+        else:
+            molecule_3d = validator.validate_final_molecule(
+                molecule_3d,
+                variant.access_code,
+                stage="pre_export",
+                expected_charge=expected_charge,
+            )
+        result.molecule = molecule_3d
+        if molecule_3d.HasProp("force_field"):
+            result.force_field = molecule_3d.GetProp("force_field")
+        if molecule_3d.HasProp("mopac_method"):
+            result.mopac_method = molecule_3d.GetProp("mopac_method")
+        if molecule_3d.HasProp("validation_rescue"):
+            result.validation_rescue = molecule_3d.GetProp("validation_rescue")
+    except VARIANT_ERRORS as exc:
+        result.error = str(exc)
+    result.seconds = round(time.perf_counter() - variant_start, 4)
+    return result
+
+
+def _prepare_record_worker(settings: dict[str, Any], record: Any) -> _RecordOutcome:
+    """Top-level entry point for joblib workers (must be picklable)."""
+    Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
+    components = _build_components(settings)
+    return _prepare_record(record, components)
 
 
 def run_workflow(
@@ -83,179 +287,32 @@ def run_workflow(
             rendered = message % args if args else message
             message_callback(rendered)
 
+    n_jobs = _resolve_n_jobs(settings)
+    report.n_jobs_used = n_jobs
+
     try:
         source = SpreadsheetSource(settings)
-        cleaner = SmilesCleaner(settings["processing"])
-        validator = StructureValidator(settings["processing"])
-        report.stereochemistry_policy = validator.describe_stereochemistry_policy()
-        protonator = build_protonator(settings["protonation"])
-        report.protonation_backend = getattr(protonator, "backend_name", "openbabel")
-        builder = StructureBuilder(settings["structure_generation"])
-        pm7_settings = dict(settings.get("pm7", {}))
-        if pm7_settings.get("enabled", False) and pm7_settings.get("preserve_files", False):
-            pm7_settings["preserved_files_dir"] = _resolve_pm7_preserved_files_dir(settings)
-        pm7_optimizer = MopacOptimizer(pm7_settings) if pm7_settings.get("enabled", False) else None
+        components = _build_components(settings)
+        report.stereochemistry_policy = components.validator.describe_stereochemistry_policy()
+        report.protonation_backend = getattr(components.protonator, "backend_name", "openbabel")
         exporter = StructureExporter(settings["export"], settings["protonation"])
 
         records = source.load_records()
         report.total_records_retrieved = len(records)
         total_records = len(records)
 
-        for index, record in enumerate(records, start=1):
+        if n_jobs > 1 and total_records > 1:
+            Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
+            outcomes = _run_records_parallel(settings, records, n_jobs)
+        else:
+            outcomes = (_prepare_record(record, components) for record in records)
+
+        for index, (record, outcome) in enumerate(zip(records, outcomes), start=1):
             if progress_callback is not None:
                 target = record.access_code or f"{PROGRESS_TEXT[language]['row']} {record.source_row}"
                 progress_callback(index - 1, total_records, f"{PROGRESS_TEXT[language]['processing']} {target}")
-
-            if not record.access_code:
-                report.failures_or_skipped_entries += 1
-                report.failure_details.append(
-                    {"access_code": "", "row": record.source_row, "reason": "Missing access code."}
-                )
-                emit(logging.WARNING, "Skipping row %s because access code is missing.", record.source_row)
-                continue
-
             try:
-                cleaned = cleaner.clean_record(record)
-                report.molecules_successfully_cleaned += 1
-                if cleaned.salts_removed:
-                    report.molecules_with_salts_removed += 1
-
-                undefined_stereo_analysis = validator.analyze_undefined_stereochemistry(
-                    cleaned.cleaned_smiles,
-                    record.access_code,
-                )
-                if undefined_stereo_analysis.should_skip:
-                    skip_message = f"Skipped: undefined stereochemistry — {cleaned.cleaned_smiles}"
-                    report.failures_or_skipped_entries += 1
-                    report.records_with_undefined_stereochemistry += 1
-                    report.stereochemistry_records_skipped += 1
-                    report.stereochemistry_issues.append(
-                        {
-                            "access_code": record.access_code,
-                            "row": record.source_row,
-                            "undefined_centers": undefined_stereo_analysis.undefined_center_count,
-                            "action": "skipped_undefined_stereo_filter",
-                            "variant_count": 0,
-                            "reason": skip_message,
-                        }
-                    )
-                    report.failure_details.append(
-                        {"access_code": record.access_code, "row": record.source_row, "reason": skip_message}
-                    )
-                    emit(logging.WARNING, skip_message)
-                    continue
-
-                validated_input_smiles = validator.validate_input_smiles(cleaned.cleaned_smiles, record.access_code)
-                stereochemistry_resolution = validator.resolve_input_variants(validated_input_smiles, record.access_code)
-                _register_stereochemistry_resolution(report, stereochemistry_resolution, record)
-                variants = stereochemistry_resolution.variants
-                if not variants:
-                    report.failures_or_skipped_entries += 1
-                    report.failure_details.append(
-                        {
-                            "access_code": record.access_code,
-                            "row": record.source_row,
-                            "reason": stereochemistry_resolution.reason or "Undefined stereochemistry policy rejected the record.",
-                        }
-                    )
-                    emit(
-                        logging.WARNING,
-                        "Skipping %s because of unresolved stereochemistry: %s",
-                        record.access_code,
-                        stereochemistry_resolution.reason or "Undefined stereochemistry policy rejected the record.",
-                    )
-                    continue
-                report.total_smiles_evaluated += len(variants)
-
-                for variant in variants:
-                    variant_start = time.perf_counter()
-                    try:
-                        protonated_smiles = protonator.protonate_smiles(variant.smiles, variant.access_code)
-                        protonated_smiles = validator.validate_protonated_smiles(protonated_smiles, variant.access_code)
-                        expected_charge = validator.formal_charge_from_smiles(protonated_smiles, variant.access_code)
-                        molecule_3d = builder.build_3d(protonated_smiles, variant.access_code)
-                        report.molecules_converted_to_3d += 1
-                        if pm7_optimizer is not None:
-                            pm7_result = pm7_optimizer.optimize(molecule_3d, variant.access_code)
-                            molecule_3d = validator.validate_final_molecule(
-                                pm7_result.molecule,
-                                variant.access_code,
-                                stage="post_pm7",
-                                expected_charge=pm7_result.charge,
-                            )
-                            report.molecules_optimized_with_pm7 += 1
-                            if pm7_result.preserved_files:
-                                report.pm7_preserved_file_count += len(pm7_result.preserved_files)
-                                report.pm7_preserved_files.extend(pm7_result.preserved_files)
-                        else:
-                            molecule_3d = validator.validate_final_molecule(
-                                molecule_3d,
-                                variant.access_code,
-                                stage="pre_export",
-                                expected_charge=expected_charge,
-                            )
-
-                        if exporter.uses_batch_export:
-                            batched_structures.append((variant.access_code, molecule_3d))
-                        else:
-                            exported_paths = exporter.write(molecule_3d, variant.access_code)
-                            _register_exported_paths(report, exported_paths, exporter.export_format)
-                            report.structure_records_exported += 1
-                        emit(
-                            logging.INFO,
-                            "Processed %s with force field %s%s%s",
-                            variant.access_code,
-                            molecule_3d.GetProp("force_field") if molecule_3d.HasProp("force_field") else "unknown",
-                            f" and {molecule_3d.GetProp('mopac_method')}" if molecule_3d.HasProp("mopac_method") else "",
-                            (
-                                f" using validation rescue {molecule_3d.GetProp('validation_rescue')}"
-                                if molecule_3d.HasProp("validation_rescue")
-                                else ""
-                            ),
-                        )
-                        report.per_record_timings.append(
-                            {
-                                "access_code": variant.access_code,
-                                "seconds": round(time.perf_counter() - variant_start, 4),
-                            }
-                        )
-                    except (
-                        OpenBabelError,
-                        ProtonationError,
-                        StructureGenerationError,
-                        StructureValidationError,
-                        Mol2ExportError,
-                        SpreadsheetSourceError,
-                        MopacError,
-                    ) as exc:
-                        report.failures_or_skipped_entries += 1
-                        report.failure_details.append(
-                            {"access_code": variant.access_code, "row": record.source_row, "reason": str(exc)}
-                        )
-                        emit(logging.ERROR, "Processing failed for %s: %s", variant.access_code, exc)
-                        continue
-            except InvalidSmilesError as exc:
-                report.invalid_smiles += 1
-                report.failures_or_skipped_entries += 1
-                report.failure_details.append(
-                    {"access_code": record.access_code, "row": record.source_row, "reason": str(exc)}
-                )
-                emit(logging.WARNING, "Skipping invalid SMILES for %s: %s", record.access_code, exc)
-            except (StructureValidationError, SpreadsheetSourceError) as exc:
-                report.failures_or_skipped_entries += 1
-                report.failure_details.append(
-                    {"access_code": record.access_code, "row": record.source_row, "reason": str(exc)}
-                )
-                emit(logging.ERROR, "Processing failed for %s: %s", record.access_code, exc)
-            except AmbiguousFragmentError as exc:
-                report.failures_or_skipped_entries += 1
-                report.status = "aborted_for_clarification"
-                report.abort_reason = str(exc)
-                report.failure_details.append(
-                    {"access_code": record.access_code, "row": record.source_row, "reason": str(exc)}
-                )
-                emit(logging.ERROR, "Execution stopped: %s", exc)
-                raise
+                _apply_outcome(report, outcome, exporter, emit, batched_structures)
             finally:
                 if progress_callback is not None:
                     target = record.access_code or f"{PROGRESS_TEXT[language]['row']} {record.source_row}"
@@ -291,6 +348,151 @@ def run_workflow(
     return WorkflowExecutionResult(report=report, report_path=str(report_path))
 
 
+def _run_records_parallel(settings: dict[str, Any], records: list[Any], n_jobs: int) -> list[_RecordOutcome]:
+    from joblib import Parallel, delayed
+
+    parallel_settings = settings.get("parallel", {})
+    backend = str(parallel_settings.get("backend", "loky"))
+    batch_size = parallel_settings.get("batch_size", "auto")
+    runner = Parallel(n_jobs=n_jobs, backend=backend, batch_size=batch_size)
+    return list(runner(delayed(_prepare_record_worker)(settings, record) for record in records))
+
+
+def _apply_outcome(
+    report: RunReport,
+    outcome: _RecordOutcome,
+    exporter: StructureExporter,
+    emit: Callable[..., None],
+    batched_structures: list[tuple[str, Any]],
+) -> None:
+    """Replay a prepared record's deltas against the shared report (main thread)."""
+    if outcome.missing_access_code:
+        report.failures_or_skipped_entries += 1
+        report.failure_details.append(
+            {"access_code": "", "row": outcome.source_row, "reason": "Missing access code."}
+        )
+        emit(logging.WARNING, "Skipping row %s because access code is missing.", outcome.source_row)
+        return
+
+    if outcome.ambiguous_error is not None:
+        report.failures_or_skipped_entries += 1
+        report.status = "aborted_for_clarification"
+        report.abort_reason = outcome.ambiguous_error
+        report.failure_details.append(
+            {"access_code": outcome.access_code, "row": outcome.source_row, "reason": outcome.ambiguous_error}
+        )
+        emit(logging.ERROR, "Execution stopped: %s", outcome.ambiguous_error)
+        raise AmbiguousFragmentError(outcome.ambiguous_error)
+
+    if outcome.invalid_smiles:
+        report.invalid_smiles += 1
+        report.failures_or_skipped_entries += 1
+        report.failure_details.append(
+            {"access_code": outcome.access_code, "row": outcome.source_row, "reason": outcome.record_error or ""}
+        )
+        emit(logging.WARNING, "Skipping invalid SMILES for %s: %s", outcome.access_code, outcome.record_error)
+        return
+
+    if outcome.cleaned:
+        report.molecules_successfully_cleaned += 1
+        if outcome.salts_removed:
+            report.molecules_with_salts_removed += 1
+
+    if outcome.undefined_skip_message is not None:
+        report.failures_or_skipped_entries += 1
+        report.records_with_undefined_stereochemistry += 1
+        report.stereochemistry_records_skipped += 1
+        report.stereochemistry_issues.append(
+            {
+                "access_code": outcome.access_code,
+                "row": outcome.source_row,
+                "undefined_centers": outcome.undefined_center_count,
+                "action": "skipped_undefined_stereo_filter",
+                "variant_count": 0,
+                "reason": outcome.undefined_skip_message,
+            }
+        )
+        report.failure_details.append(
+            {"access_code": outcome.access_code, "row": outcome.source_row, "reason": outcome.undefined_skip_message}
+        )
+        emit(logging.WARNING, outcome.undefined_skip_message)
+        return
+
+    if outcome.record_error is not None:
+        report.failures_or_skipped_entries += 1
+        report.failure_details.append(
+            {"access_code": outcome.access_code, "row": outcome.source_row, "reason": outcome.record_error}
+        )
+        emit(logging.ERROR, "Processing failed for %s: %s", outcome.access_code, outcome.record_error)
+        return
+
+    if outcome.stereo_issue is not None:
+        report.records_with_undefined_stereochemistry += 1
+        if outcome.stereo_enumerated:
+            report.stereochemistry_records_enumerated += 1
+        if outcome.stereo_skipped:
+            report.stereochemistry_records_skipped += 1
+        report.stereochemistry_issues.append(outcome.stereo_issue)
+
+    if outcome.no_variants_reason is not None:
+        report.failures_or_skipped_entries += 1
+        report.failure_details.append(
+            {"access_code": outcome.access_code, "row": outcome.source_row, "reason": outcome.no_variants_reason}
+        )
+        emit(
+            logging.WARNING,
+            "Skipping %s because of unresolved stereochemistry: %s",
+            outcome.access_code,
+            outcome.no_variants_reason,
+        )
+        return
+
+    report.total_smiles_evaluated += outcome.variant_count
+
+    for variant in outcome.variants:
+        if variant.error is not None:
+            report.failures_or_skipped_entries += 1
+            report.failure_details.append(
+                {"access_code": variant.access_code, "row": outcome.source_row, "reason": variant.error}
+            )
+            emit(logging.ERROR, "Processing failed for %s: %s", variant.access_code, variant.error)
+            continue
+
+        report.molecules_converted_to_3d += 1
+        if variant.pm7_used:
+            report.molecules_optimized_with_pm7 += 1
+            if variant.preserved_files:
+                report.pm7_preserved_file_count += len(variant.preserved_files)
+                report.pm7_preserved_files.extend(variant.preserved_files)
+
+        try:
+            if exporter.uses_batch_export:
+                batched_structures.append((variant.access_code, variant.molecule))
+            else:
+                exported_paths = exporter.write(variant.molecule, variant.access_code)
+                _register_exported_paths(report, exported_paths, exporter.export_format)
+                report.structure_records_exported += 1
+        except (Mol2ExportError, StructureValidationError) as exc:
+            report.failures_or_skipped_entries += 1
+            report.failure_details.append(
+                {"access_code": variant.access_code, "row": outcome.source_row, "reason": str(exc)}
+            )
+            emit(logging.ERROR, "Processing failed for %s: %s", variant.access_code, exc)
+            continue
+
+        emit(
+            logging.INFO,
+            "Processed %s with force field %s%s%s",
+            variant.access_code,
+            variant.force_field or "unknown",
+            f" and {variant.mopac_method}" if variant.mopac_method else "",
+            f" using validation rescue {variant.validation_rescue}" if variant.validation_rescue else "",
+        )
+        report.per_record_timings.append(
+            {"access_code": variant.access_code, "seconds": variant.seconds}
+        )
+
+
 def _finalize_timing(report: RunReport, wall_clock_start: float) -> None:
     report.finished_at = datetime.now(timezone.utc).isoformat()
     report.wall_clock_seconds = round(time.perf_counter() - wall_clock_start, 4)
@@ -324,26 +526,22 @@ def _register_exported_paths(report: RunReport, exported_paths: list[Any], expor
         report.generated_pdbqt_files.extend(str(path) for path in exported_paths)
 
 
-def _register_stereochemistry_resolution(report: RunReport, resolution: Any, record: Any) -> None:
+def _capture_stereochemistry_resolution(outcome: _RecordOutcome, resolution: Any, record: Any) -> None:
     if getattr(resolution, "undefined_center_count", 0) <= 0:
         return
-
-    report.records_with_undefined_stereochemistry += 1
+    outcome.stereo_undefined_record = True
     if getattr(resolution, "variants", []):
-        report.stereochemistry_records_enumerated += 1
+        outcome.stereo_enumerated = True
     else:
-        report.stereochemistry_records_skipped += 1
-
-    report.stereochemistry_issues.append(
-        {
-            "access_code": record.access_code,
-            "row": record.source_row,
-            "undefined_centers": resolution.undefined_center_count,
-            "action": resolution.action,
-            "variant_count": len(resolution.variants),
-            "reason": resolution.reason or "",
-        }
-    )
+        outcome.stereo_skipped = True
+    outcome.stereo_issue = {
+        "access_code": record.access_code,
+        "row": record.source_row,
+        "undefined_centers": resolution.undefined_center_count,
+        "action": resolution.action,
+        "variant_count": len(resolution.variants),
+        "reason": resolution.reason or "",
+    }
 
 
 def _resolve_pm7_preserved_files_dir(settings: dict[str, Any]) -> str:

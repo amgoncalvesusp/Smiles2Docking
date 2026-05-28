@@ -66,7 +66,7 @@ def _run_one(
     settings.setdefault("parallel", {})["enabled"] = n_jobs != 1
     settings["parallel"]["n_jobs"] = n_jobs
     settings.setdefault("protonation", {})["backend"] = protonation_backend
-    settings.setdefault("structure_generation", {}).setdefault("mopac", {})["enabled"] = mopac_enabled
+    settings.setdefault("pm7", {})["enabled"] = mopac_enabled
     resolved = resolve_settings_paths(settings)
 
     logger = _build_logger()

@@ -26,9 +26,14 @@ JSON RunReport now records per-molecule timing.
   AutoDock Vina pipelines (replaces the Open Babel `-xh` path).
 - **MOPAC PM7 refinement and stereochemistry controls retained** from
   1.1.1 — no GUI capability was lost.
+- **Optional joblib parallelism.** Records fan out across worker
+  processes (`loky` backend) when `parallel.enabled: true`; preparation
+  (clean → protonate → embed → PM7 → validate) runs in workers while
+  export and reporting stay single-threaded for deterministic output.
+  Sequential remains the default (`parallel.enabled: false`).
 - **Per-molecule timing in the JSON RunReport.** `started_at`,
   `finished_at`, `wall_clock_seconds`, per-record seconds, mean/median/p95,
-  fastest/slowest, throughput (molecules/min).
+  fastest/slowest, throughput (molecules/min), and `n_jobs_used`.
 - **AppImage / frozen read-only failure fixed.** XDG/APPDATA user-writable
   output paths via `src/utils/app_paths.py`. No more
   `[Errno 30] Read-only file system` on AppImage launches.
@@ -59,6 +64,16 @@ export:
     charge_model: gasteiger
 ```
 
+New `parallel` block (sequential by default):
+
+```yaml
+parallel:
+  enabled: false             # true to fan records across worker processes
+  n_jobs: -1                 # -1 = all CPUs; 1 = sequential; N = N workers
+  backend: loky              # joblib backend (loky isolates workers)
+  batch_size: auto           # joblib batch_size
+```
+
 The 1.1.1 `pm7` block and processing stereochemistry keys are unchanged.
 
 ## New / pinned dependencies
@@ -66,6 +81,7 @@ The 1.1.1 `pm7` block and processing stereochemistry keys are unchanged.
 | Package | Min version | Purpose |
 |---------|-------------|---------|
 | `dimorphite-dl` | 1.3 | Multi-site protonation backend |
+| `joblib` | 1.3 | Optional process-level parallelism |
 | `meeko` | 0.5 | PDBQT writer |
 | `scipy` | 1.10 | Meeko transitive dep (geometry) |
 | `gemmi` | 0.6 | Meeko transitive dep (structure I/O) |
@@ -77,6 +93,7 @@ The 1.1.1 `pm7` block and processing stereochemistry keys are unchanged.
 ```json
 {
   "protonation_backend": "dimorphite",
+  "n_jobs_used": 1,
   "started_at": "2026-05-28T12:34:56+00:00",
   "finished_at": "2026-05-28T12:35:09+00:00",
   "wall_clock_seconds": 12.45,
