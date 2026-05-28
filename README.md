@@ -12,7 +12,7 @@ Desktop application and Python workflow for preparing ligands from `CSV`, `XLS`,
 
 - Adriano Marques Gonçalves — Universidade de Araraquara (UNIARA) — amgoncalves@uniara.edu.br
 - Daniel Grajales Ruiz — Universidade Estadual Paulista (UNESP)
-- Nailton MOnteiro do Nascimento Júnior — Universidade Estadual Paulista (UNESP)
+- Nailton Monteiro do Nascimento Júnior — Universidade Estadual Paulista (UNESP)
 
 ### Key capabilities
 
