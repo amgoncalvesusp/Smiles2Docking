@@ -2,10 +2,34 @@
 from pathlib import Path
 import sys
 
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs
+import PySide6
+from PyInstaller.utils.hooks import (
+    collect_all,
+    collect_data_files,
+    collect_dynamic_libs,
+)
 
 project_root = Path.cwd()
 env_prefix = Path(sys.prefix)
+pyside_root = Path(PySide6.__file__).resolve().parent
+
+
+def _resolve_qt_platforms_dir():
+    candidates = [
+        pyside_root / "plugins" / "platforms",
+        env_prefix / "Library" / "lib" / "qt6" / "plugins" / "platforms",
+        env_prefix / "Library" / "lib" / "qt5" / "plugins" / "platforms",
+    ]
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    raise FileNotFoundError(
+        "Qt 'platforms' plugin directory not found. Checked: "
+        + ", ".join(str(candidate) for candidate in candidates)
+    )
+
+
+qt_platforms_dir = _resolve_qt_platforms_dir()
 
 rdkit_datas = collect_data_files("rdkit")
 rdkit_binaries = collect_dynamic_libs("rdkit")
@@ -68,6 +92,8 @@ project_datas = [
     (str(project_root / "AUTHORS.md"), "."),
     (str(project_root / "CITATION.cff"), "."),
     (str(project_root / "LICENSE"), "."),
+    (str(project_root / "packaging" / "qt.conf"), "."),
+    (str(qt_platforms_dir), "platforms"),
 ]
 
 openbabel_datas = []
@@ -105,7 +131,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=[str(project_root / "packaging" / "pyinstaller_qt_runtime.py")],
     excludes=[
         "matplotlib",
         "pytest",
@@ -129,6 +155,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    contents_directory=".",
 )
 
 coll = COLLECT(

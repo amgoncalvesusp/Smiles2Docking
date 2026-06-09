@@ -3,7 +3,7 @@
 #endif
 
 #define AppName "SMILES2DOCKING"
-#define AppExeName "smiles2docking.exe"
+#define AppExeName "SMILES2DockingDesktop.exe"
 
 [Setup]
 AppId={{9F6C1B97-6E92-4D9E-9D97-0CE1D36D85F4}}
@@ -36,7 +36,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
 
 [Files]
-Source: "..\dist\smiles2docking\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\SMILES2DockingDesktop\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\*"

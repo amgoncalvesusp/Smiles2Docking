@@ -33,13 +33,24 @@ jobs:
           pip install -r environment/requirements.txt
       - name: Build
         run: pyinstaller --noconfirm --clean packaging/windows/smiles2docking.spec
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+      - name: Build installer
+        shell: powershell
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart("v")
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "installer\smiles2docking_setup.iss"
       - name: Package
         run: |
           cd dist
           7z a "../SMILES2Docking-${GITHUB_REF_NAME}-windows-x86_64.zip" SMILES2DockingDesktop
       - uses: softprops/action-gh-release@v2
         with:
-          files: SMILES2Docking-*-windows-x86_64.zip
+          overwrite_files: true
+          files: |
+            SMILES2Docking-*-windows-x86_64.zip
+            installer/output/SMILES2DOCKING_Setup_*_win64.exe
 
   linux:
     runs-on: ubuntu-latest
@@ -76,6 +87,7 @@ jobs:
           for f in SMILES2DockingDesktop-linux-x86_64.tar.gz; do [ -e "$f" ] && mv "$f" "SMILES2Docking-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"; done
       - uses: softprops/action-gh-release@v2
         with:
+          overwrite_files: true
           files: |
             release/linux/SMILES2Docking-*-linux-x86_64.AppImage
             release/linux/SMILES2Docking-*-linux-x86_64.tar.gz
@@ -111,4 +123,5 @@ jobs:
           fi
       - uses: softprops/action-gh-release@v2
         with:
+          overwrite_files: true
           files: SMILES2Docking-*-macos.zip
