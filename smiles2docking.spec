@@ -3,7 +3,12 @@ import sys
 from pathlib import Path
 
 import PySide6
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
+from PyInstaller.utils.hooks import (
+    collect_all,
+    collect_data_files,
+    collect_dynamic_libs,
+    collect_submodules,
+)
 
 
 project_root = Path.cwd()
@@ -32,6 +37,12 @@ def _resolve_qt_platforms_dir() -> Path:
 
 qt_platforms_dir = _resolve_qt_platforms_dir()
 
+# Bundle the full dimorphite_dl tree (incl. the smarts/ data dir holding
+# site_substructures.smarts). collect_all is required because that dir is a
+# namespace package with no __init__.py, which a bare collect_data_files would
+# not register for importlib.resources.files("dimorphite_dl.smarts").
+dimorphite_datas, dimorphite_binaries, dimorphite_hiddenimports = collect_all("dimorphite_dl")
+
 rdkit_hiddenimports = sorted(
     set(
         collect_submodules("rdkit")
@@ -59,7 +70,7 @@ hiddenimports = sorted(
         rdkit_hiddenimports
         + collect_submodules("meeko")
         + collect_submodules("scipy")
-        + collect_submodules("dimorphite_dl")
+        + dimorphite_hiddenimports
         + [
             "openpyxl",
             "openpyxl.cell",
@@ -78,7 +89,7 @@ hiddenimports = sorted(
     )
 )
 
-datas = collect_data_files("rdkit") + collect_data_files("meeko") + [
+datas = collect_data_files("rdkit") + collect_data_files("meeko") + dimorphite_datas + [
     (str(project_root / "assets"), "assets"),
     (str(project_root / "config"), "config"),
     (str(project_root / "docs"), "docs"),
@@ -93,7 +104,7 @@ datas = collect_data_files("rdkit") + collect_data_files("meeko") + [
     (str(qt_platforms_dir), "platforms"),
 ]
 
-binaries = collect_dynamic_libs("rdkit") + collect_dynamic_libs("scipy") + collect_dynamic_libs("gemmi")
+binaries = collect_dynamic_libs("rdkit") + collect_dynamic_libs("scipy") + collect_dynamic_libs("gemmi") + dimorphite_binaries
 
 excludes = [
     "tests",

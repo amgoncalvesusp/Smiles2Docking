@@ -20,6 +20,7 @@ class DimorphiteProtonator:
 
     settings: dict[str, Any]
     backend_name: str = field(default="dimorphite", init=False)
+    _ruleset_verified: bool = field(default=False, init=False)
 
     def protonate_smiles(self, smiles: str, access_code: str) -> str:
         if not self.settings.get("enabled", True):
@@ -33,6 +34,10 @@ class DimorphiteProtonator:
                 "or switch the protonation backend to 'openbabel' in settings."
             ) from exc
 
+        if not self._ruleset_verified:
+            self._verify_ruleset_loaded()
+            self._ruleset_verified = True
+
         ph = float(self.settings.get("ph", 7.4))
         ph_tol = float(self.settings.get("ph_tolerance", 1.0))
         max_variants = int(self.settings.get("max_variants", 1))
@@ -40,7 +45,9 @@ class DimorphiteProtonator:
         pka_precision = float(self.settings.get("pka_precision", 1.0))
 
         try:
-            variants = self._run_dimorphite(_dd, smiles, ph, ph_tol, max_variants, pka_precision)
+            variants = self._run_dimorphite(
+                _dd, smiles, ph, ph_tol, max_variants, pka_precision
+            )
         except ProtonationError:
             raise
         except Exception as exc:
@@ -49,13 +56,47 @@ class DimorphiteProtonator:
             ) from exc
 
         if not variants:
-            raise ProtonationError(f"Dimorphite-DL returned no variants for {access_code!r}")
+            raise ProtonationError(
+                f"Dimorphite-DL returned no variants for {access_code!r}"
+            )
 
         if keep_label == "most_neutral":
             chosen = min(variants, key=lambda smi: _abs_formal_charge(smi, access_code))
         else:
             chosen = variants[0]
         return chosen
+
+    @staticmethod
+    def _verify_ruleset_loaded() -> None:
+        """Fail loudly if Dimorphite-DL cannot load its SMARTS ruleset.
+
+        Dimorphite-DL's ``PKaData`` is a singleton that assigns its instance
+        *before* loading the SMARTS data file. If that first load fails (e.g. a
+        frozen build that did not bundle ``dimorphite_dl.smarts``), the singleton
+        is left with an empty ruleset and every subsequent molecule is returned
+        unprotonated with no error. Force the one-time load here and abort the
+        run rather than emit silently wrong chemistry.
+        """
+        try:
+            from dimorphite_dl.protonate.data import PKaData
+        except Exception:
+            # Unknown dimorphite_dl layout: fall back to the per-molecule error
+            # path instead of guessing at internals.
+            return
+
+        try:
+            PKaData()
+        except Exception as exc:
+            raise ProtonationError(
+                f"Dimorphite-DL could not load its SMARTS ruleset: {exc}. "
+                "Aborting to avoid silently producing unprotonated structures."
+            ) from exc
+
+        if not getattr(PKaData, "_data", None):
+            raise ProtonationError(
+                "Dimorphite-DL loaded an empty SMARTS ruleset; aborting to avoid "
+                "silently producing unprotonated structures."
+            )
 
     @staticmethod
     def _run_dimorphite(

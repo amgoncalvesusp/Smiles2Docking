@@ -2,7 +2,7 @@
 from pathlib import Path
 import sys
 
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs
 
 project_root = Path.cwd()
 env_prefix = Path(sys.prefix)
@@ -25,12 +25,12 @@ pyside_datas = []
 pyside_binaries = []
 pyside_hiddenimports = []
 
-# v0.3.0: Dimorphite-DL protonation backend
-dimorphite_datas = collect_data_files("dimorphite_dl")
-dimorphite_hiddenimports = [
-    "dimorphite_dl",
-    "loguru",
-]
+# v0.3.0: Dimorphite-DL protonation backend.
+# collect_all pulls the smarts/ data dir (site_substructures.smarts), which is a
+# namespace package (no __init__.py); a bare collect_data_files would leave
+# importlib.resources.files("dimorphite_dl.smarts") unresolvable in the frozen app.
+dimorphite_datas, dimorphite_binaries, dimorphite_hiddenimports = collect_all("dimorphite_dl")
+dimorphite_hiddenimports = sorted(set(dimorphite_hiddenimports + ["dimorphite_dl", "loguru"]))
 
 # v0.3.0: Meeko PDBQT writer
 meeko_datas = collect_data_files("meeko")
@@ -100,7 +100,7 @@ hiddenimports = sorted(
 a = Analysis(
     [str(project_root / "scripts" / "run_gui.py")],
     pathex=[str(project_root)],
-    binaries=rdkit_binaries + pyside_binaries + openbabel_binaries + scipy_binaries + gemmi_binaries,
+    binaries=rdkit_binaries + pyside_binaries + openbabel_binaries + scipy_binaries + gemmi_binaries + dimorphite_binaries,
     datas=rdkit_datas + pyside_datas + project_datas + openbabel_datas + dimorphite_datas + meeko_datas,
     hiddenimports=hiddenimports,
     hookspath=[],

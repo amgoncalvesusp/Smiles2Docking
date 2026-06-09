@@ -35,8 +35,18 @@ from src.app_metadata import (
     AUTHOR_SUMMARY,
     PROJECT_LICENSE,
 )
-from src.quantum.mopac_methods import COMMON_MOPAC_METHODS, get_method_info, normalize_mopac_method
-from src.utils.config import load_settings, merge_settings, resolve_project_path, resolve_settings_paths
+from src.quantum.mopac_methods import (
+    COMMON_MOPAC_METHODS,
+    get_method_info,
+    normalize_mopac_method,
+)
+from src.utils.config import (
+    default_path_for_display,
+    load_settings,
+    merge_settings,
+    resolve_project_path,
+    resolve_settings_paths,
+)
 from src.utils.logging_utils import setup_logging
 from src.workflow.pipeline import run_workflow
 
@@ -328,12 +338,18 @@ class MainWindow(QMainWindow):
         self.id_label.setText(self._text("id"))
         self.ph_label.setText(self._text("ph"))
         self.protonation_backend_label.setText(self._text("protonation_backend"))
-        self.protonation_backend_hint_label.setText(self._text("protonation_backend_hint"))
+        self.protonation_backend_hint_label.setText(
+            self._text("protonation_backend_hint")
+        )
         self.skip_undefined_stereo_label.setText(self._text("skip_undefined_stereo"))
         self.skip_undefined_stereo_hint_label.setText(SKIP_UNDEFINED_STEREO_EXPLANATION)
         self.strict_stereo_label.setText(self._text("strict_stereo"))
-        self.single_undefined_stereo_label.setText(self._text("strict_stereo_single_only"))
-        self.single_undefined_stereo_hint_label.setText(self._text("strict_stereo_single_hint"))
+        self.single_undefined_stereo_label.setText(
+            self._text("strict_stereo_single_only")
+        )
+        self.single_undefined_stereo_hint_label.setText(
+            self._text("strict_stereo_single_hint")
+        )
         self.pm7_label.setText(self._text("pm7"))
         self.mopac_method_label.setText(self._text("mopac_method"))
         self.mopac_method_hint_label.setText(self._text("mopac_method_hint"))
@@ -378,7 +394,9 @@ class MainWindow(QMainWindow):
         }
         for index in range(self.export_mode_combo.count()):
             export_mode = str(self.export_mode_combo.itemData(index))
-            self.export_mode_combo.setItemText(index, label_map.get(export_mode, export_mode))
+            self.export_mode_combo.setItemText(
+                index, label_map.get(export_mode, export_mode)
+            )
 
     def _change_language(self) -> None:
         selected = str(self.language_combo.currentData())
@@ -401,7 +419,9 @@ class MainWindow(QMainWindow):
         self.language_combo = QComboBox(menu_container)
         self.language_combo.addItem("English", "en")
         self.language_combo.addItem("Português", "pt")
-        self.language_combo.setCurrentIndex(max(self.language_combo.findData(self.current_language), 0))
+        self.language_combo.setCurrentIndex(
+            max(self.language_combo.findData(self.current_language), 0)
+        )
         self.language_combo.currentIndexChanged.connect(self._change_language)
 
         about_button = QPushButton("Sobre", menu_container)
@@ -491,7 +511,9 @@ class MainWindow(QMainWindow):
         self._configure_form_layout(layout)
 
         input_defaults = self.base_settings["input"]
-        default_input = input_defaults.get("file_path") or str(resolve_project_path("data/raw/sample_molecules.csv"))
+        default_input = input_defaults.get("file_path") or str(
+            resolve_project_path("data/raw/sample_molecules.csv")
+        )
         self.input_file_edit = QLineEdit(str(resolve_project_path(default_input)))
         browse_input = QPushButton(self._text("browse"))
         browse_input.clicked.connect(self._browse_input_file)
@@ -502,8 +524,12 @@ class MainWindow(QMainWindow):
 
         self.sheet_edit = QLineEdit()
         self.sheet_edit.setPlaceholderText(self._text("sheet_placeholder"))
-        self.smiles_column_edit = QLineEdit(input_defaults.get("smiles_column", "smiles"))
-        self.access_code_column_edit = QLineEdit(input_defaults.get("access_code_column", "access_code"))
+        self.smiles_column_edit = QLineEdit(
+            input_defaults.get("smiles_column", "smiles")
+        )
+        self.access_code_column_edit = QLineEdit(
+            input_defaults.get("access_code_column", "access_code")
+        )
         self.input_file_label = QLabel(self._text("file"))
         self.sheet_label = QLabel(self._text("sheet"))
         self.smiles_label = QLabel(self._text("smiles"))
@@ -533,48 +559,76 @@ class MainWindow(QMainWindow):
             ("none", "None"),
         ):
             self.protonation_backend_combo.addItem(backend_label, backend_value)
-        configured_backend = str(self.base_settings["protonation"].get("backend", "dimorphite")).lower()
+        configured_backend = str(
+            self.base_settings["protonation"].get("backend", "dimorphite")
+        ).lower()
         backend_index = self.protonation_backend_combo.findData(configured_backend)
         if backend_index >= 0:
             self.protonation_backend_combo.setCurrentIndex(backend_index)
         self.skip_undefined_stereo_checkbox = QCheckBox("")
         self.skip_undefined_stereo_checkbox.setChecked(
-            bool(self.base_settings.get("processing", {}).get("skip_undefined_stereo", False))
+            bool(
+                self.base_settings.get("processing", {}).get(
+                    "skip_undefined_stereo", False
+                )
+            )
         )
         self.strict_stereo_checkbox = QCheckBox("")
         self.strict_stereo_checkbox.setChecked(
-            bool(self.base_settings.get("processing", {}).get("strict_stereochemistry", False))
+            bool(
+                self.base_settings.get("processing", {}).get(
+                    "strict_stereochemistry", False
+                )
+            )
         )
         self.strict_stereo_checkbox.toggled.connect(self._toggle_stereochemistry_state)
         self.single_undefined_stereo_checkbox = QCheckBox("")
         self.single_undefined_stereo_checkbox.setChecked(
-            bool(self.base_settings.get("processing", {}).get("single_undefined_stereocenter_only", False))
+            bool(
+                self.base_settings.get("processing", {}).get(
+                    "single_undefined_stereocenter_only", False
+                )
+            )
         )
         self.pm7_checkbox = QCheckBox("")
-        self.pm7_checkbox.setChecked(bool(self.base_settings.get("pm7", {}).get("enabled", True)))
+        self.pm7_checkbox.setChecked(
+            bool(self.base_settings.get("pm7", {}).get("enabled", True))
+        )
         self.pm7_checkbox.toggled.connect(self._toggle_pm7_state)
         self.mopac_method_combo = QComboBox()
         self.mopac_method_combo.setEditable(True)
         for method_info in COMMON_MOPAC_METHODS:
             self.mopac_method_combo.addItem(method_info.keyword, method_info.keyword)
-        configured_method = normalize_mopac_method(self.base_settings.get("pm7", {}).get("method", "PM7"))
+        configured_method = normalize_mopac_method(
+            self.base_settings.get("pm7", {}).get("method", "PM7")
+        )
         configured_method_index = self.mopac_method_combo.findData(configured_method)
         if configured_method_index >= 0:
             self.mopac_method_combo.setCurrentIndex(configured_method_index)
         else:
             self.mopac_method_combo.setEditText(configured_method)
-        self.mopac_method_combo.currentTextChanged.connect(self._update_mopac_method_description)
+        self.mopac_method_combo.currentTextChanged.connect(
+            self._update_mopac_method_description
+        )
         self.pm7_solvent_checkbox = QCheckBox("")
-        self.pm7_solvent_checkbox.setChecked(bool(self.base_settings.get("pm7", {}).get("use_eps", True)))
+        self.pm7_solvent_checkbox.setChecked(
+            bool(self.base_settings.get("pm7", {}).get("use_eps", True))
+        )
         self.pm7_solvent_checkbox.toggled.connect(self._toggle_pm7_state)
         self.pm7_preserve_checkbox = QCheckBox("")
-        self.pm7_preserve_checkbox.setChecked(bool(self.base_settings.get("pm7", {}).get("preserve_files", False)))
+        self.pm7_preserve_checkbox.setChecked(
+            bool(self.base_settings.get("pm7", {}).get("preserve_files", False))
+        )
         self.pm7_eps_spin = QDoubleSpinBox()
         self.pm7_eps_spin.setRange(1.0, 200.0)
         self.pm7_eps_spin.setDecimals(2)
         self.pm7_eps_spin.setSingleStep(0.1)
-        self.pm7_eps_spin.setValue(float(self.base_settings.get("pm7", {}).get("eps", 78.39)))
-        self.mopac_binary_edit = QLineEdit(str(self.base_settings.get("pm7", {}).get("binary_path", "")).strip())
+        self.pm7_eps_spin.setValue(
+            float(self.base_settings.get("pm7", {}).get("eps", 78.39))
+        )
+        self.mopac_binary_edit = QLineEdit(
+            str(self.base_settings.get("pm7", {}).get("binary_path", "")).strip()
+        )
         browse_mopac = QPushButton(self._text("browse"))
         browse_mopac.clicked.connect(self._browse_mopac_binary)
         self.browse_mopac_button = browse_mopac
@@ -583,16 +637,24 @@ class MainWindow(QMainWindow):
         mopac_row.addWidget(browse_mopac)
         self.ph_label = QLabel(self._text("ph"))
         self.protonation_backend_label = QLabel(self._text("protonation_backend"))
-        self.protonation_backend_hint_label = QLabel(self._text("protonation_backend_hint"))
+        self.protonation_backend_hint_label = QLabel(
+            self._text("protonation_backend_hint")
+        )
         self.protonation_backend_hint_label.setObjectName("fieldHintLabel")
         self.protonation_backend_hint_label.setWordWrap(True)
         self.pm7_label = QLabel(self._text("pm7"))
         self.skip_undefined_stereo_label = QLabel(self._text("skip_undefined_stereo"))
-        self.skip_undefined_stereo_hint_label = QLabel(SKIP_UNDEFINED_STEREO_EXPLANATION)
+        self.skip_undefined_stereo_hint_label = QLabel(
+            SKIP_UNDEFINED_STEREO_EXPLANATION
+        )
         self.skip_undefined_stereo_hint_label.setObjectName("fieldHintLabel")
         self.skip_undefined_stereo_hint_label.setWordWrap(True)
-        self.single_undefined_stereo_label = QLabel(self._text("strict_stereo_single_only"))
-        self.single_undefined_stereo_hint_label = QLabel(self._text("strict_stereo_single_hint"))
+        self.single_undefined_stereo_label = QLabel(
+            self._text("strict_stereo_single_only")
+        )
+        self.single_undefined_stereo_hint_label = QLabel(
+            self._text("strict_stereo_single_hint")
+        )
         self.single_undefined_stereo_hint_label.setObjectName("fieldHintLabel")
         self.single_undefined_stereo_hint_label.setWordWrap(True)
         self.mopac_method_label = QLabel(self._text("mopac_method"))
@@ -615,19 +677,31 @@ class MainWindow(QMainWindow):
         layout.addRow(self.ph_label, self.ph_spin)
         layout.addRow(self.protonation_backend_label, self.protonation_backend_combo)
         layout.addRow(QLabel(""), self.protonation_backend_hint_label)
-        layout.addRow(self.skip_undefined_stereo_label, self._checkbox_cell(self.skip_undefined_stereo_checkbox))
+        layout.addRow(
+            self.skip_undefined_stereo_label,
+            self._checkbox_cell(self.skip_undefined_stereo_checkbox),
+        )
         layout.addRow(QLabel(""), self.skip_undefined_stereo_hint_label)
         self.strict_stereo_label = QLabel(self._text("strict_stereo"))
-        layout.addRow(self.strict_stereo_label, self._checkbox_cell(self.strict_stereo_checkbox))
-        layout.addRow(self.single_undefined_stereo_label, self._checkbox_cell(self.single_undefined_stereo_checkbox))
+        layout.addRow(
+            self.strict_stereo_label, self._checkbox_cell(self.strict_stereo_checkbox)
+        )
+        layout.addRow(
+            self.single_undefined_stereo_label,
+            self._checkbox_cell(self.single_undefined_stereo_checkbox),
+        )
         layout.addRow(QLabel(""), self.single_undefined_stereo_hint_label)
         layout.addRow(self.pm7_label, self._checkbox_cell(self.pm7_checkbox))
         layout.addRow(self.mopac_method_label, self.mopac_method_combo)
         layout.addRow(QLabel(""), self.mopac_method_hint_label)
         layout.addRow(QLabel(""), self.mopac_method_description_label)
-        layout.addRow(self.pm7_solvent_label, self._checkbox_cell(self.pm7_solvent_checkbox))
+        layout.addRow(
+            self.pm7_solvent_label, self._checkbox_cell(self.pm7_solvent_checkbox)
+        )
         layout.addRow(self.pm7_eps_label, self.pm7_eps_spin)
-        layout.addRow(self.pm7_preserve_label, self._checkbox_cell(self.pm7_preserve_checkbox))
+        layout.addRow(
+            self.pm7_preserve_label, self._checkbox_cell(self.pm7_preserve_checkbox)
+        )
         layout.addRow(QLabel(""), self.pm7_preserve_hint_label)
         layout.addRow(self.mopac_binary_label, self._wrap_layout(mopac_row))
         layout.addRow(QLabel(""), self.mopac_binary_hint_label)
@@ -642,7 +716,11 @@ class MainWindow(QMainWindow):
         layout = QFormLayout(group)
         self._configure_form_layout(layout)
 
-        self.output_dir_edit = QLineEdit(str(resolve_project_path(self.base_settings["export"]["output_dir"])))
+        self.output_dir_edit = QLineEdit(
+            default_path_for_display(
+                "export", "output_dir", self.base_settings["export"]["output_dir"]
+            )
+        )
         browse_output = QPushButton(self._text("browse"))
         browse_output.clicked.connect(self._browse_output_dir)
         self.browse_output_button = browse_output
@@ -651,18 +729,30 @@ class MainWindow(QMainWindow):
         output_row.addWidget(browse_output)
 
         self.export_mode_combo = QComboBox()
-        self.export_mode_combo.addItem(self._text("mode_separate_mol2"), "separate_mol2")
+        self.export_mode_combo.addItem(
+            self._text("mode_separate_mol2"), "separate_mol2"
+        )
         self.export_mode_combo.addItem(self._text("mode_separate_sdf"), "separate_sdf")
-        self.export_mode_combo.addItem(self._text("mode_separate_pdbqt"), "separate_pdbqt")
+        self.export_mode_combo.addItem(
+            self._text("mode_separate_pdbqt"), "separate_pdbqt"
+        )
         self.export_mode_combo.addItem(self._text("mode_single_mol2"), "single_mol2")
         self.export_mode_combo.addItem(self._text("mode_single_sdf"), "single_sdf")
         self.export_mode_combo.addItem(self._text("mode_single_pdbqt"), "single_pdbqt")
-        configured_export_mode = self.base_settings["export"].get("mode", "separate_mol2")
-        configured_index = max(self.export_mode_combo.findData(configured_export_mode), 0)
+        configured_export_mode = self.base_settings["export"].get(
+            "mode", "separate_mol2"
+        )
+        configured_index = max(
+            self.export_mode_combo.findData(configured_export_mode), 0
+        )
         self.export_mode_combo.setCurrentIndex(configured_index)
-        self.export_mode_combo.currentIndexChanged.connect(self._toggle_bundle_name_state)
+        self.export_mode_combo.currentIndexChanged.connect(
+            self._toggle_bundle_name_state
+        )
 
-        self.bundle_name_edit = QLineEdit(self.base_settings["export"].get("bundle_basename", "prepared_ligands"))
+        self.bundle_name_edit = QLineEdit(
+            self.base_settings["export"].get("bundle_basename", "prepared_ligands")
+        )
         self.output_dir_label = QLabel(self._text("output_dir"))
         self.export_mode_label = QLabel(self._text("export_mode"))
         self.bundle_name_label = QLabel(self._text("bundle_name"))
@@ -854,8 +944,12 @@ class MainWindow(QMainWindow):
             self.main_layout.setDirection(QBoxLayout.LeftToRight)
 
         for layout in self._form_layouts:
-            layout.setRowWrapPolicy(QFormLayout.WrapAllRows if compact else QFormLayout.WrapLongRows)
-            layout.setLabelAlignment((Qt.AlignLeft if compact else Qt.AlignRight) | Qt.AlignVCenter)
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows if compact else QFormLayout.WrapLongRows
+            )
+            layout.setLabelAlignment(
+                (Qt.AlignLeft if compact else Qt.AlignRight) | Qt.AlignVCenter
+            )
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -897,7 +991,9 @@ class MainWindow(QMainWindow):
 
     def _browse_mopac_binary(self) -> None:
         current = self.mopac_binary_edit.text().strip()
-        start_dir = str(Path(current).parent) if current else str(resolve_project_path("."))
+        start_dir = (
+            str(Path(current).parent) if current else str(resolve_project_path("."))
+        )
         path, _ = QFileDialog.getOpenFileName(
             self,
             self._text("browse_mopac_title"),
@@ -908,16 +1004,28 @@ class MainWindow(QMainWindow):
             self.mopac_binary_edit.setText(path)
 
     def _toggle_bundle_name_state(self) -> None:
-        single_file_mode = self.export_mode_combo.currentData() in {"single_mol2", "single_sdf", "single_pdbqt"}
+        single_file_mode = self.export_mode_combo.currentData() in {
+            "single_mol2",
+            "single_sdf",
+            "single_pdbqt",
+        }
         self.bundle_name_edit.setEnabled(True)
         if single_file_mode:
-            self.bundle_name_edit.setPlaceholderText(self._text("bundle_placeholder_enabled"))
+            self.bundle_name_edit.setPlaceholderText(
+                self._text("bundle_placeholder_enabled")
+            )
         else:
-            self.bundle_name_edit.setPlaceholderText(self._text("bundle_placeholder_disabled"))
+            self.bundle_name_edit.setPlaceholderText(
+                self._text("bundle_placeholder_disabled")
+            )
         self.bundle_name_hint_label.setText(self._bundle_name_hint_text())
 
     def _bundle_name_hint_text(self) -> str:
-        if self.export_mode_combo.currentData() in {"single_mol2", "single_sdf", "single_pdbqt"}:
+        if self.export_mode_combo.currentData() in {
+            "single_mol2",
+            "single_sdf",
+            "single_pdbqt",
+        }:
             return self._text("bundle_hint_single")
         return self._text("bundle_hint_separate")
 
@@ -925,7 +1033,9 @@ class MainWindow(QMainWindow):
         pm7_enabled = self.pm7_checkbox.isChecked()
         self.mopac_method_combo.setEnabled(pm7_enabled)
         self.pm7_solvent_checkbox.setEnabled(pm7_enabled)
-        self.pm7_eps_spin.setEnabled(pm7_enabled and self.pm7_solvent_checkbox.isChecked())
+        self.pm7_eps_spin.setEnabled(
+            pm7_enabled and self.pm7_solvent_checkbox.isChecked()
+        )
         self.pm7_preserve_checkbox.setEnabled(pm7_enabled)
         self.mopac_binary_edit.setEnabled(pm7_enabled)
         self.browse_mopac_button.setEnabled(pm7_enabled)
@@ -955,9 +1065,13 @@ class MainWindow(QMainWindow):
             return
 
         if self.current_language == "pt":
-            self.mopac_method_description_label.setText(f"{info.keyword}: {info.title_pt} {info.description_pt}")
+            self.mopac_method_description_label.setText(
+                f"{info.keyword}: {info.title_pt} {info.description_pt}"
+            )
         else:
-            self.mopac_method_description_label.setText(f"{info.keyword}: {info.title_en} {info.description_en}")
+            self.mopac_method_description_label.setText(
+                f"{info.keyword}: {info.title_en} {info.description_en}"
+            )
 
     def _build_overrides(self) -> WorkflowOverrides:
         return WorkflowOverrides(
@@ -996,7 +1110,8 @@ class MainWindow(QMainWindow):
                 "access_code_column": overrides.access_code_column or "access_code",
             },
             "export": {
-                "output_dir": overrides.output_dir or str(resolve_project_path("data/processed")),
+                "output_dir": overrides.output_dir
+                or str(resolve_project_path("data/processed")),
                 "mode": overrides.export_mode,
                 "bundle_basename": overrides.bundle_basename,
             },
@@ -1020,7 +1135,9 @@ class MainWindow(QMainWindow):
             },
             "ui": {"language": self.current_language},
         }
-        settings = resolve_settings_paths(merge_settings(self.base_settings, runtime_overrides))
+        settings = resolve_settings_paths(
+            merge_settings(self.base_settings, runtime_overrides)
+        )
 
         self.run_button.setEnabled(False)
         self.log_box.clear()
@@ -1067,7 +1184,9 @@ class MainWindow(QMainWindow):
             f"{self._text('summary_report')}: {payload['report_path']}",
         ]
         if payload["log_file_path"]:
-            summary_lines.append(f"{self._text('summary_log')}: {payload['log_file_path']}")
+            summary_lines.append(
+                f"{self._text('summary_log')}: {payload['log_file_path']}"
+            )
         self.summary_label.setText("\n".join(summary_lines))
 
     def _on_finished(self, payload: dict) -> None:
@@ -1082,7 +1201,9 @@ class MainWindow(QMainWindow):
         self.run_button.setEnabled(True)
         self.progress_bar.setValue(0)
         self.progress_label.setText(self._text("status_failed"))
-        self.summary_label.setText(self._text("failure_summary").format(message=message))
+        self.summary_label.setText(
+            self._text("failure_summary").format(message=message)
+        )
         self.log_box.appendPlainText(message)
 
     def _cleanup_thread(self) -> None:
@@ -1124,7 +1245,9 @@ class MainWindow(QMainWindow):
         if not payload.get("pm7_enabled"):
             return self._text("pm7_disabled")
         method = payload.get("pm7_method") or "PM7"
-        return self._text("pm7_enabled_summary").format(method=method, count=payload.get("pm7_optimized", 0))
+        return self._text("pm7_enabled_summary").format(
+            method=method, count=payload.get("pm7_optimized", 0)
+        )
 
     def _describe_eps(self, payload: dict) -> str:
         value = payload.get("pm7_solvent_eps")

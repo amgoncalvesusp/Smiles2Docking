@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import re
 import shutil
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -117,29 +119,53 @@ class StructureExporter:
 
         raise Mol2ExportError(f"Unsupported export mode: {self.mode}")
 
-    def _write_sdf_records(self, molecules: list[tuple[str, Chem.Mol]], output_path: Path) -> None:
-        writer = Chem.SDWriter(str(output_path))
-        if writer is None:
-            raise Mol2ExportError(f"Could not create SDF writer for {output_path}")
+    def _write_sdf_records(
+        self, molecules: list[tuple[str, Chem.Mol]], output_path: Path
+    ) -> None:
+        # RDKit's SDWriter opens files through narrow-char C++ I/O that cannot
+        # encode non-ASCII paths on Windows (e.g. OneDrive folders with accented
+        # names), failing with "Bad output file". Stage the write on an
+        # ASCII-safe temp path, then move it into place with Python's
+        # Unicode-safe file API.
+        fd, tmp_name = tempfile.mkstemp(suffix=".sdf")
+        os.close(fd)
+        tmp_path = Path(tmp_name)
         try:
-            for access_code, molecule in molecules:
-                export_molecule = Chem.Mol(molecule)
-                export_molecule.SetProp("_Name", access_code)
-                writer.write(export_molecule)
+            writer = Chem.SDWriter(str(tmp_path))
+            if writer is None:
+                raise Mol2ExportError(f"Could not create SDF writer for {output_path}")
+            try:
+                for access_code, molecule in molecules:
+                    export_molecule = Chem.Mol(molecule)
+                    export_molecule.SetProp("_Name", access_code)
+                    writer.write(export_molecule)
+            finally:
+                writer.close()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            if output_path.exists():
+                output_path.unlink()
+            shutil.move(str(tmp_path), str(output_path))
         finally:
-            writer.close()
+            if tmp_path.exists():
+                tmp_path.unlink()
 
-    def _convert_sdf_to_mol2(self, input_sdf: Path, output_mol2: Path, label: str) -> None:
+    def _convert_sdf_to_mol2(
+        self, input_sdf: Path, output_mol2: Path, label: str
+    ) -> None:
         try:
             self.converter.sdf_to_mol2(input_sdf, output_mol2)
         except Exception as exc:
             raise Mol2ExportError(f"Could not export {label!r} to MOL2: {exc}") from exc
 
-    def _write_pdbqt_one(self, molecule: Chem.Mol, output_pdbqt: Path, label: str) -> None:
+    def _write_pdbqt_one(
+        self, molecule: Chem.Mol, output_pdbqt: Path, label: str
+    ) -> None:
         try:
             self._ensure_pdbqt_writer().write_one(molecule, output_pdbqt, label)
         except PDBQTExportError as exc:
-            raise Mol2ExportError(f"Could not export {label!r} to PDBQT: {exc}") from exc
+            raise Mol2ExportError(
+                f"Could not export {label!r} to PDBQT: {exc}"
+            ) from exc
 
     def _write_pdbqt_batch(
         self, molecules: list[tuple[str, Chem.Mol]], output_pdbqt: Path, label: str
@@ -147,7 +173,9 @@ class StructureExporter:
         try:
             self._ensure_pdbqt_writer().write_batch(molecules, output_pdbqt)
         except PDBQTExportError as exc:
-            raise Mol2ExportError(f"Could not export {label!r} to PDBQT: {exc}") from exc
+            raise Mol2ExportError(
+                f"Could not export {label!r} to PDBQT: {exc}"
+            ) from exc
 
     def _ensure_writable(self, output_path: Path) -> None:
         if output_path.exists() and not self.export_settings.get("overwrite", True):

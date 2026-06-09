@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from src.utils.app_paths import is_appimage, is_frozen, user_cache_dir, user_data_dir, user_log_dir
+from src.utils.app_paths import (
+    is_appimage,
+    is_frozen,
+    user_cache_dir,
+    user_data_dir,
+    user_log_dir,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -36,6 +43,45 @@ def _user_base_for(kind: str) -> Path:
     if kind in {"export_tmp", "protonation_tmp", "mopac_tmp"}:
         return user_cache_dir() / "intermediate" / kind.replace("_tmp", "")
     return user_data_dir() / kind
+
+
+def _readonly_install_roots() -> list[Path]:
+    roots = [PROJECT_ROOT]
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        roots.append(Path(meipass))
+    return [root.resolve() for root in roots]
+
+
+def _is_inside_readonly_install(path: Path) -> bool:
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    for root in _readonly_install_roots():
+        try:
+            resolved.relative_to(root)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def default_path_for_display(section: str, key: str, value: str) -> str:
+    """Resolve a configured path the way the workflow will.
+
+    On read-only installs (PyInstaller frozen builds, Linux AppImage) a writable
+    path is redirected to a per-user directory when it is relative OR when it
+    resolves inside the read-only install tree. User-chosen absolute paths
+    outside the bundle are respected. Shared by ``resolve_settings_paths`` and
+    the GUI so the suggested default never points at a read-only location.
+    """
+    redirect_kind = _WRITABLE_PATH_REDIRECTS.get((section, key))
+    if _install_is_read_only() and redirect_kind is not None:
+        candidate = Path(value)
+        if not candidate.is_absolute() or _is_inside_readonly_install(candidate):
+            return str(_user_base_for(redirect_kind))
+    return resolve_project_path(value)
 
 
 def load_settings(config_path: str | None = None) -> dict[str, Any]:
@@ -73,16 +119,11 @@ def resolve_settings_paths(settings: dict[str, Any]) -> dict[str, Any]:
         ("pm7", "binary_path"),
         ("pm7", "preserved_files_dir"),
     )
-    read_only_install = _install_is_read_only()
     for section, key in path_settings:
         value = settings.get(section, {}).get(key)
         if not value:
             continue
-        redirect_kind = _WRITABLE_PATH_REDIRECTS.get((section, key))
-        if read_only_install and redirect_kind is not None and not Path(value).is_absolute():
-            settings[section][key] = str(_user_base_for(redirect_kind))
-        else:
-            settings[section][key] = resolve_project_path(value)
+        settings[section][key] = default_path_for_display(section, key, value)
     export_output_dir = settings.get("export", {}).get("output_dir")
     if export_output_dir:
         if settings.get("reporting", {}).get("use_output_dir", False):
