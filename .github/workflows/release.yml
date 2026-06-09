@@ -1,0 +1,114 @@
+name: Release
+
+# Builds frozen desktop bundles for Windows, Linux (AppImage) and macOS on tag
+# push and attaches them to the GitHub Release. RDKit and Open Babel are pulled
+# from conda-forge; the remaining dependencies come from environment/requirements.txt.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          python-version: "3.11"
+          channels: conda-forge
+          channel-priority: strict
+          activate-environment: s2d
+      - name: Install dependencies
+        run: |
+          conda install -y -c conda-forge rdkit openbabel
+          pip install -r environment/requirements.txt
+      - name: Build
+        run: pyinstaller --noconfirm --clean packaging/windows/smiles2docking.spec
+      - name: Package
+        run: |
+          cd dist
+          7z a "../SMILES2Docking-${GITHUB_REF_NAME}-windows-x86_64.zip" SMILES2DockingDesktop
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: SMILES2Docking-*-windows-x86_64.zip
+
+  linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          python-version: "3.11"
+          channels: conda-forge
+          channel-priority: strict
+          activate-environment: s2d
+      - name: Install dependencies
+        run: |
+          conda install -y -c conda-forge rdkit openbabel
+          pip install -r environment/requirements.txt
+      - name: Install appimagetool
+        shell: bash
+        run: |
+          curl -fsSL -o /usr/local/bin/appimagetool \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /usr/local/bin/appimagetool
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: bash packaging/linux/build_portable.sh
+      - name: Rename artifacts
+        run: |
+          cd release/linux
+          for f in *.AppImage; do [ -e "$f" ] && mv "$f" "SMILES2Docking-${GITHUB_REF_NAME}-linux-x86_64.AppImage"; done
+          for f in SMILES2DockingDesktop-linux-x86_64.tar.gz; do [ -e "$f" ] && mv "$f" "SMILES2Docking-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"; done
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/linux/SMILES2Docking-*-linux-x86_64.AppImage
+            release/linux/SMILES2Docking-*-linux-x86_64.tar.gz
+
+  macos:
+    # Best-effort: no prior macOS build precedent. Uses packaging/macos/smiles2docking.spec.
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          python-version: "3.11"
+          channels: conda-forge
+          channel-priority: strict
+          activate-environment: s2d
+      - name: Install dependencies
+        run: |
+          conda install -y -c conda-forge rdkit openbabel
+          pip install -r environment/requirements.txt
+      - name: Build
+        run: pyinstaller --noconfirm --clean packaging/macos/smiles2docking.spec
+      - name: Package
+        run: |
+          cd dist
+          if [ -d "SMILES2Docking.app" ]; then
+            ditto -c -k --keepParent "SMILES2Docking.app" "../SMILES2Docking-${GITHUB_REF_NAME}-macos.zip"
+          else
+            ditto -c -k --keepParent "SMILES2DockingDesktop" "../SMILES2Docking-${GITHUB_REF_NAME}-macos.zip"
+          fi
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: SMILES2Docking-*-macos.zip
