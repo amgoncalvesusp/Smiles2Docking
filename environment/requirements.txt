@@ -2,7 +2,7 @@ pandas>=2.2
 PyYAML>=6.0
 openpyxl>=3.1
 matplotlib>=3.10
-PySide6>=6.9
+PySide6==6.9.2
 pyinstaller>=6.19
 pytest>=8.0
 joblib>=1.3
