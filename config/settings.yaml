@@ -59,7 +59,10 @@ export:
   pdbqt:
     rigid: false
     add_hydrogens: true
-    keep_nonpolar_hydrogens: false
+    # Keep all hydrogens (incl. nonpolar) so the PDBQT shows the full H set.
+    # AutoDock classically merges nonpolar H (united-atom); set to false to
+    # restore that convention if a docking engine requires it.
+    keep_nonpolar_hydrogens: true
     charge_model: gasteiger
 
 parallel:
