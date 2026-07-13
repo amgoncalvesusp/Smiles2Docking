@@ -8,14 +8,26 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.utils.config import load_settings, merge_settings, resolve_project_path, resolve_settings_paths
+# Import torch before RDKit to keep the Windows DLL load order deterministic.
+import src.utils.torch_preimport  # noqa: F401,E402
+
+from src.utils.config import (
+    load_settings,
+    merge_settings,
+    resolve_project_path,
+    resolve_settings_paths,
+)
 from src.utils.logging_utils import setup_logging
 from src.workflow.pipeline import run_workflow
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prepare molecules from spreadsheet/Excel input.")
-    parser.add_argument("--config", default=str(PROJECT_ROOT / "config" / "settings.yaml"))
+    parser = argparse.ArgumentParser(
+        description="Prepare molecules from spreadsheet/Excel input."
+    )
+    parser.add_argument(
+        "--config", default=str(PROJECT_ROOT / "config" / "settings.yaml")
+    )
     parser.add_argument("--input", help="Path to CSV/XLS/XLSX file.")
     parser.add_argument("--sheet", help="Excel sheet name.")
     parser.add_argument("--smiles-column", help="Column containing SMILES.")
@@ -32,7 +44,10 @@ def parse_args() -> argparse.Namespace:
         dest="bundle_name",
         help="Base filename for single-file exports or optional prefix for separate-file exports.",
     )
-    parser.add_argument("--output-dir", help="Directory for exported structures, report and workflow log.")
+    parser.add_argument(
+        "--output-dir",
+        help="Directory for exported structures, report and workflow log.",
+    )
     return parser.parse_args()
 
 
@@ -66,7 +81,9 @@ def main() -> int:
     settings = merge_settings(load_settings(args.config), build_overrides(args))
 
     if not settings["input"].get("file_path"):
-        raise SystemExit("An input spreadsheet file is required. Use --input or set input.file_path in config/settings.yaml.")
+        raise SystemExit(
+            "An input spreadsheet file is required. Use --input or set input.file_path in config/settings.yaml."
+        )
 
     settings = resolve_settings_paths(settings)
 

@@ -76,7 +76,7 @@ LANGUAGE_TEXT = {
         "id": "ID column",
         "ph": "Target pH",
         "protonation_backend": "Protonation tool",
-        "protonation_backend_hint": "Dimorphite-DL applies multi-site pKa rules (recommended). Open Babel uses the legacy -p mode. None disables protonation.",
+        "protonation_backend_hint": "MolGpKa predicts the dominant protonation state via a GNN pKa model (recommended). Dimorphite-DL (all states) enumerates every plausible state; (single) picks one. Open Babel uses the legacy -p mode. None disables protonation.",
         "skip_undefined_stereo": "Skip undefined stereochemistry",
         "strict_stereo": "Enumerate undefined stereochemistry",
         "strict_stereo_single_only": "Only when exactly one center is undefined",
@@ -158,7 +158,7 @@ LANGUAGE_TEXT = {
         "id": "Coluna ID",
         "ph": "pH alvo",
         "protonation_backend": "Ferramenta de protonacao",
-        "protonation_backend_hint": "Dimorphite-DL aplica regras de pKa multi-sitio (recomendado). Open Babel usa o modo legado -p. Nenhuma desativa a protonacao.",
+        "protonation_backend_hint": "MolGpKa preve o estado de protonacao dominante via modelo GNN de pKa (recomendado). Dimorphite-DL (todos os estados) enumera cada estado plausivel; (unico) escolhe um. Open Babel usa o modo legado -p. Nenhuma desativa a protonacao.",
         "skip_undefined_stereo": "Ignorar estereoquimica indefinida",
         "strict_stereo": "Enumerar estereoquimica indefinida",
         "strict_stereo_single_only": "Apenas quando exatamente um centro estiver indefinido",
@@ -554,13 +554,15 @@ class MainWindow(QMainWindow):
         self.ph_spin.setValue(float(self.base_settings["protonation"].get("ph", 7.4)))
         self.protonation_backend_combo = QComboBox()
         for backend_value, backend_label in (
-            ("dimorphite", "Dimorphite-DL"),
+            ("molgpka", "MolGpKa"),
+            ("dimorphite", "Dimorphite-DL (all states)"),
+            ("dimorphite_pick", "Dimorphite-DL (single)"),
             ("openbabel", "Open Babel"),
             ("none", "None"),
         ):
             self.protonation_backend_combo.addItem(backend_label, backend_value)
         configured_backend = str(
-            self.base_settings["protonation"].get("backend", "dimorphite")
+            self.base_settings["protonation"].get("backend", "molgpka")
         ).lower()
         backend_index = self.protonation_backend_combo.findData(configured_backend)
         if backend_index >= 0:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from src.protonation.dimorphite_adapter import DimorphiteProtonator
 from src.protonation.factory import (
     NullProtonator,
     ProtonationError,
@@ -30,9 +31,24 @@ def test_build_rejects_unknown_backend() -> None:
         build_protonator({"enabled": True, "backend": "magic-pka"})
 
 
-def test_build_default_backend_is_dimorphite() -> None:
+def test_build_default_backend_is_molgpka() -> None:
     protonator = build_protonator({"enabled": True, "ph": 7.4})
-    assert protonator.backend_name == "dimorphite"
+    assert protonator.backend_name == "molgpka"
+
+
+def test_build_dimorphite_enumeration_exposes_states() -> None:
+    protonator = build_protonator({"enabled": True, "backend": "dimorphite", "ph": 7.4})
+    assert isinstance(protonator, DimorphiteProtonator)
+    # Enumeration backends offer protonate_states in addition to the single pick.
+    assert callable(getattr(protonator, "protonate_states", None))
+
+
+def test_build_dimorphite_pick_disables_enumeration() -> None:
+    protonator = build_protonator(
+        {"enabled": True, "backend": "dimorphite_pick", "ph": 7.4}
+    )
+    assert isinstance(protonator, DimorphiteProtonator)
+    assert protonator.settings.get("enumerate") is False
 
 
 def test_null_protonator_is_identity() -> None:

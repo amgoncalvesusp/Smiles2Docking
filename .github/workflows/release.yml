@@ -30,6 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           conda install -y -c conda-forge rdkit openbabel
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r environment/requirements.txt
       - name: Build
         run: pyinstaller --noconfirm --clean packaging/windows/smiles2docking.spec
@@ -70,6 +71,7 @@ jobs:
       - name: Install dependencies
         run: |
           conda install -y -c conda-forge rdkit openbabel
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r environment/requirements.txt
       - name: Install appimagetool
         shell: bash
@@ -112,6 +114,7 @@ jobs:
       - name: Install dependencies
         run: |
           conda install -y -c conda-forge rdkit openbabel
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r environment/requirements.txt
       - name: Build
         run: pyinstaller --noconfirm --clean packaging/macos/smiles2docking.spec

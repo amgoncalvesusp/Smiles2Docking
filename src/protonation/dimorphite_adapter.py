@@ -22,10 +22,8 @@ class DimorphiteProtonator:
     backend_name: str = field(default="dimorphite", init=False)
     _ruleset_verified: bool = field(default=False, init=False)
 
-    def protonate_smiles(self, smiles: str, access_code: str) -> str:
-        if not self.settings.get("enabled", True):
-            return smiles
-
+    def _enumerate(self, smiles: str, access_code: str, max_variants: int) -> list[str]:
+        """Return the unique protonation states Dimorphite-DL predicts."""
         try:
             import dimorphite_dl as _dd
         except ImportError as exc:
@@ -40,8 +38,6 @@ class DimorphiteProtonator:
 
         ph = float(self.settings.get("ph", 7.4))
         ph_tol = float(self.settings.get("ph_tolerance", 1.0))
-        max_variants = int(self.settings.get("max_variants", 1))
-        keep_label = str(self.settings.get("variant_selection", "first")).lower()
         pka_precision = float(self.settings.get("pka_precision", 1.0))
 
         try:
@@ -59,12 +55,40 @@ class DimorphiteProtonator:
             raise ProtonationError(
                 f"Dimorphite-DL returned no variants for {access_code!r}"
             )
+        # De-duplicate while preserving Dimorphite's ordering.
+        return list(dict.fromkeys(variants))
 
+    def protonate_smiles(self, smiles: str, access_code: str) -> str:
+        """Single dominant-ish state (legacy 'dimorphite_pick' behaviour).
+
+        Dimorphite-DL does not rank a physically dominant microstate, so this
+        merely picks one of its enumerated states. The default backend is
+        MolGpKa; use :meth:`protonate_states` to expose all states instead.
+        """
+        if not self.settings.get("enabled", True):
+            return smiles
+
+        max_variants = int(self.settings.get("max_variants", 1))
+        variants = self._enumerate(smiles, access_code, max_variants)
+        keep_label = str(self.settings.get("variant_selection", "first")).lower()
         if keep_label == "most_neutral":
-            chosen = min(variants, key=lambda smi: _abs_formal_charge(smi, access_code))
-        else:
-            chosen = variants[0]
-        return chosen
+            return min(variants, key=lambda smi: _abs_formal_charge(smi, access_code))
+        return variants[0]
+
+    def protonate_states(self, smiles: str, access_code: str) -> list[str]:
+        """All plausible protonation states in the configured pH window.
+
+        This is the enumeration mode requested in review: rather than silently
+        returning one arbitrary state, every state Dimorphite-DL predicts is
+        handed back to the caller. Set ``enumerate: false`` to fall back to the
+        single-state ``protonate_smiles`` behaviour.
+        """
+        if not self.settings.get("enabled", True):
+            return [smiles]
+        if not self.settings.get("enumerate", True):
+            return [self.protonate_smiles(smiles, access_code)]
+        max_variants = int(self.settings.get("max_variants", 128))
+        return self._enumerate(smiles, access_code, max_variants)
 
     @staticmethod
     def _verify_ruleset_loaded() -> None:

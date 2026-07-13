@@ -16,15 +16,21 @@ processing:
 
 protonation:
   enabled: true
-  backend: dimorphite        # dimorphite | openbabel | none
+  backend: molgpka           # molgpka | dimorphite | dimorphite_pick | openbabel | none
   ph: 7.4
   obabel_binary: obabel
   temp_dir: data/intermediate/tmp/protonation
   # Dimorphite-DL backend parameters
+  enumerate: true            # dimorphite: return ALL plausible states (not one)
   ph_tolerance: 1.0
-  max_variants: 1
-  variant_selection: first   # first | most_neutral
+  max_variants: 128          # dimorphite enumeration cap
+  variant_selection: first   # dimorphite_pick only: first | most_neutral
   pka_precision: 1.0
+
+tautomer:
+  enabled: false             # optional: pick the dominant tautomer before protonation
+  backend: sphysnet          # sphysnet (sPhysNet-Taut) — requires optional extra install
+  max_tautomers: 16
 
 pm7:
   enabled: false

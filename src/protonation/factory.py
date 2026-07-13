@@ -20,18 +20,28 @@ class NullProtonator:
 
 
 def build_protonator(settings: dict[str, Any]) -> Protonator:
-    backend = str(settings.get("backend", "dimorphite")).strip().lower()
+    backend = str(settings.get("backend", "molgpka")).strip().lower()
     if not settings.get("enabled", True):
         return NullProtonator(settings)
+    if backend in {"molgpka", "gpka"}:
+        # Imported lazily: MolGpKa pulls in torch, which is only needed when
+        # this backend is actually selected.
+        from src.protonation.molgpka_adapter import MolGpKaProtonator
+
+        return MolGpKaProtonator(settings)
     if backend in {"dimorphite", "dimorphite_dl", "dimorphite-dl"}:
         return DimorphiteProtonator(settings)
+    if backend in {"dimorphite_pick", "dimorphite-pick"}:
+        # Legacy v1.x behaviour: Dimorphite-DL enumerates then a single state
+        # is picked. Kept for reproducibility of pre-1.3 runs.
+        return DimorphiteProtonator({**settings, "enumerate": False})
     if backend in {"openbabel", "obabel", "ob"}:
         return OpenBabelProtonator(settings)
     if backend in {"none", "off"}:
         return NullProtonator(settings)
     raise ProtonationError(
         f"Unknown protonation backend '{backend}'. "
-        "Supported backends: dimorphite, openbabel, none."
+        "Supported backends: molgpka, dimorphite, dimorphite_pick, openbabel, none."
     )
 
 

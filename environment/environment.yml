@@ -17,6 +17,9 @@ dependencies:
   - pip
   - pip:
       - typing-extensions
+      # MolGpKa default backend (CPU torch + torch-geometric; no torch-scatter).
+      - torch>=2.2
+      - torch-geometric>=2.4
       - dimorphite-dl>=1.3
       - meeko>=0.5
       - gemmi>=0.6
