@@ -423,18 +423,18 @@ def run_workflow(
         report.abort_reason = str(exc)
         emit(logging.ERROR, "Input loading failed: %s", exc)
         _finalize_timing(report, wall_clock_start)
-        report_path = write_report(report, settings["reporting"]["report_dir"])
-        emit(logging.INFO, "Run report written to %s", report_path)
+        report_path = _write_report(report, settings)
+        report_path and emit(logging.INFO, "Run report written to %s", report_path)
         return WorkflowExecutionResult(report=report, report_path=str(report_path))
     except AmbiguousFragmentError:
         _finalize_timing(report, wall_clock_start)
-        report_path = write_report(report, settings["reporting"]["report_dir"])
-        emit(logging.INFO, "Run report written to %s", report_path)
+        report_path = _write_report(report, settings)
+        report_path and emit(logging.INFO, "Run report written to %s", report_path)
         return WorkflowExecutionResult(report=report, report_path=str(report_path))
 
     _finalize_timing(report, wall_clock_start)
-    report_path = write_report(report, settings["reporting"]["report_dir"])
-    emit(logging.INFO, "Run report written to %s", report_path)
+    report_path = _write_report(report, settings)
+    report_path and emit(logging.INFO, "Run report written to %s", report_path)
     return WorkflowExecutionResult(report=report, report_path=str(report_path))
 
 
@@ -663,6 +663,14 @@ def _finalize_timing(report: RunReport, wall_clock_start: float) -> None:
     total = sum(durations)
     if total > 0:
         report.throughput_molecules_per_minute = round(len(durations) / total * 60.0, 2)
+
+
+def _write_report(report: RunReport, settings: dict[str, Any]) -> str:
+    """Write the JSON audit report unless reporting is disabled in settings."""
+    reporting = settings.get("reporting", {})
+    if not reporting.get("enabled", True):
+        return ""
+    return str(write_report(report, reporting["report_dir"]))
 
 
 def _register_exported_paths(

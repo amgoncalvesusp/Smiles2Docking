@@ -77,6 +77,9 @@ LANGUAGE_TEXT = {
         "ph": "Target pH",
         "protonation_backend": "Protonation tool",
         "protonation_backend_hint": "MolGpKa predicts the dominant protonation state via a GNN pKa model (recommended). Dimorphite-DL (all states) enumerates every plausible state; (single) picks one. Open Babel uses the legacy -p mode. None disables protonation.",
+        "tautomer": "Dominant tautomer",
+        "tautomer_backend": "Tautomer ranking",
+        "tautomer_hint": "Optional and off by default. When enabled, tautomers are enumerated with RDKit and the dominant one is selected before protonation. sPhysNet-Taut ranks by predicted aqueous ratio (optional extra install); RDKit uses its canonical tautomer.",
         "skip_undefined_stereo": "Skip undefined stereochemistry",
         "strict_stereo": "Enumerate undefined stereochemistry",
         "strict_stereo_single_only": "Only when exactly one center is undefined",
@@ -93,6 +96,9 @@ LANGUAGE_TEXT = {
         "output_dir": "Output directory",
         "export_mode": "Export mode",
         "bundle_name": "Output name / prefix",
+        "report_enabled": "Write JSON audit report",
+        "report_dir": "Report directory",
+        "report_hint": "A single JSON report is written per run, with one entry per compound. Disable it to skip report writing for very large batches.",
         "bundle_hint_single": "Used as the name of the single exported file.",
         "bundle_hint_separate": "Optional prefix for separate files. Leave blank to keep only the compound IDs.",
         "browse": "Browse...",
@@ -159,6 +165,9 @@ LANGUAGE_TEXT = {
         "ph": "pH alvo",
         "protonation_backend": "Ferramenta de protonacao",
         "protonation_backend_hint": "MolGpKa preve o estado de protonacao dominante via modelo GNN de pKa (recomendado). Dimorphite-DL (todos os estados) enumera cada estado plausivel; (unico) escolhe um. Open Babel usa o modo legado -p. Nenhuma desativa a protonacao.",
+        "tautomer": "Tautomero dominante",
+        "tautomer_backend": "Ranqueamento de tautomeros",
+        "tautomer_hint": "Opcional e desativado por padrao. Quando ativado, os tautomeros sao enumerados com RDKit e o dominante e selecionado antes da protonacao. sPhysNet-Taut ordena pela razao aquosa prevista (instalacao extra opcional); RDKit usa seu tautomero canonico.",
         "skip_undefined_stereo": "Ignorar estereoquimica indefinida",
         "strict_stereo": "Enumerar estereoquimica indefinida",
         "strict_stereo_single_only": "Apenas quando exatamente um centro estiver indefinido",
@@ -175,6 +184,9 @@ LANGUAGE_TEXT = {
         "output_dir": "Diretório de saída",
         "export_mode": "Modo de exportação",
         "bundle_name": "Nome de saída / prefixo",
+        "report_enabled": "Gravar relatorio JSON de auditoria",
+        "report_dir": "Diretorio do relatorio",
+        "report_hint": "Um unico relatorio JSON e gravado por execucao, com uma entrada por composto. Desative para pular a gravacao em lotes muito grandes.",
         "bundle_hint_single": "Usado como nome do arquivo único exportado.",
         "bundle_hint_separate": "Prefixo opcional para arquivos separados. Deixe em branco para usar apenas os IDs.",
         "browse": "Selecionar...",
@@ -249,6 +261,10 @@ class WorkflowOverrides:
     pm7_preserve_files: bool
     mopac_binary: str
     run_in_background: bool
+    tautomer_enabled: bool
+    tautomer_backend: str
+    report_enabled: bool
+    report_dir: str
 
 
 class WorkflowWorker(QObject):
@@ -341,6 +357,9 @@ class MainWindow(QMainWindow):
         self.protonation_backend_hint_label.setText(
             self._text("protonation_backend_hint")
         )
+        self.tautomer_label.setText(self._text("tautomer"))
+        self.tautomer_backend_label.setText(self._text("tautomer_backend"))
+        self.tautomer_hint_label.setText(self._text("tautomer_hint"))
         self.skip_undefined_stereo_label.setText(self._text("skip_undefined_stereo"))
         self.skip_undefined_stereo_hint_label.setText(SKIP_UNDEFINED_STEREO_EXPLANATION)
         self.strict_stereo_label.setText(self._text("strict_stereo"))
@@ -360,6 +379,10 @@ class MainWindow(QMainWindow):
         self.mopac_binary_label.setText(self._text("mopac_binary"))
         self.mopac_binary_hint_label.setText(self._text("mopac_binary_hint"))
         self.output_dir_label.setText(self._text("output_dir"))
+        self.report_enabled_label.setText(self._text("report_enabled"))
+        self.report_dir_label.setText(self._text("report_dir"))
+        self.report_hint_label.setText(self._text("report_hint"))
+        self.browse_report_button.setText(self._text("browse"))
         self.export_mode_label.setText(self._text("export_mode"))
         self.bundle_name_label.setText(self._text("bundle_name"))
         self.bundle_name_hint_label.setText(self._bundle_name_hint_text())
@@ -567,6 +590,25 @@ class MainWindow(QMainWindow):
         backend_index = self.protonation_backend_combo.findData(configured_backend)
         if backend_index >= 0:
             self.protonation_backend_combo.setCurrentIndex(backend_index)
+        self.tautomer_checkbox = QCheckBox("")
+        self.tautomer_checkbox.setChecked(
+            bool(self.base_settings.get("tautomer", {}).get("enabled", False))
+        )
+        self.tautomer_checkbox.toggled.connect(self._toggle_tautomer_state)
+        self.tautomer_backend_combo = QComboBox()
+        for taut_value, taut_label in (
+            ("sphysnet", "sPhysNet-Taut"),
+            ("rdkit", "RDKit canonical"),
+        ):
+            self.tautomer_backend_combo.addItem(taut_label, taut_value)
+        configured_tautomer_backend = str(
+            self.base_settings.get("tautomer", {}).get("backend", "sphysnet")
+        ).lower()
+        tautomer_backend_index = self.tautomer_backend_combo.findData(
+            configured_tautomer_backend
+        )
+        if tautomer_backend_index >= 0:
+            self.tautomer_backend_combo.setCurrentIndex(tautomer_backend_index)
         self.skip_undefined_stereo_checkbox = QCheckBox("")
         self.skip_undefined_stereo_checkbox.setChecked(
             bool(
@@ -644,6 +686,11 @@ class MainWindow(QMainWindow):
         )
         self.protonation_backend_hint_label.setObjectName("fieldHintLabel")
         self.protonation_backend_hint_label.setWordWrap(True)
+        self.tautomer_label = QLabel(self._text("tautomer"))
+        self.tautomer_backend_label = QLabel(self._text("tautomer_backend"))
+        self.tautomer_hint_label = QLabel(self._text("tautomer_hint"))
+        self.tautomer_hint_label.setObjectName("fieldHintLabel")
+        self.tautomer_hint_label.setWordWrap(True)
         self.pm7_label = QLabel(self._text("pm7"))
         self.skip_undefined_stereo_label = QLabel(self._text("skip_undefined_stereo"))
         self.skip_undefined_stereo_hint_label = QLabel(
@@ -679,6 +726,9 @@ class MainWindow(QMainWindow):
         layout.addRow(self.ph_label, self.ph_spin)
         layout.addRow(self.protonation_backend_label, self.protonation_backend_combo)
         layout.addRow(QLabel(""), self.protonation_backend_hint_label)
+        layout.addRow(self.tautomer_label, self._checkbox_cell(self.tautomer_checkbox))
+        layout.addRow(self.tautomer_backend_label, self.tautomer_backend_combo)
+        layout.addRow(QLabel(""), self.tautomer_hint_label)
         layout.addRow(
             self.skip_undefined_stereo_label,
             self._checkbox_cell(self.skip_undefined_stereo_checkbox),
@@ -710,7 +760,13 @@ class MainWindow(QMainWindow):
         self._update_mopac_method_description()
         self._toggle_stereochemistry_state()
         self._toggle_pm7_state()
+        self._toggle_tautomer_state()
         return group
+
+    def _toggle_tautomer_state(self) -> None:
+        enabled = self.tautomer_checkbox.isChecked()
+        self.tautomer_backend_combo.setEnabled(enabled)
+        self.tautomer_backend_label.setEnabled(enabled)
 
     def _build_output_group(self) -> QGroupBox:
         group = QGroupBox(self._text("output"))
@@ -755,19 +811,64 @@ class MainWindow(QMainWindow):
         self.bundle_name_edit = QLineEdit(
             self.base_settings["export"].get("bundle_basename", "prepared_ligands")
         )
+        self.report_enabled_checkbox = QCheckBox("")
+        self.report_enabled_checkbox.setChecked(
+            bool(self.base_settings.get("reporting", {}).get("enabled", True))
+        )
+        self.report_enabled_checkbox.toggled.connect(self._toggle_report_state)
+        self.report_dir_edit = QLineEdit(
+            default_path_for_display(
+                "reporting",
+                "report_dir",
+                self.base_settings.get("reporting", {}).get(
+                    "report_dir", "data/reports"
+                ),
+            )
+        )
+        browse_report = QPushButton(self._text("browse"))
+        browse_report.clicked.connect(self._browse_report_dir)
+        self.browse_report_button = browse_report
+        report_row = QHBoxLayout()
+        report_row.addWidget(self.report_dir_edit, 1)
+        report_row.addWidget(browse_report)
         self.output_dir_label = QLabel(self._text("output_dir"))
         self.export_mode_label = QLabel(self._text("export_mode"))
         self.bundle_name_label = QLabel(self._text("bundle_name"))
         self.bundle_name_hint_label = QLabel(self._bundle_name_hint_text())
         self.bundle_name_hint_label.setObjectName("fieldHintLabel")
         self.bundle_name_hint_label.setWordWrap(True)
+        self.report_enabled_label = QLabel(self._text("report_enabled"))
+        self.report_dir_label = QLabel(self._text("report_dir"))
+        self.report_hint_label = QLabel(self._text("report_hint"))
+        self.report_hint_label.setObjectName("fieldHintLabel")
+        self.report_hint_label.setWordWrap(True)
 
         layout.addRow(self.output_dir_label, self._wrap_layout(output_row))
         layout.addRow(self.export_mode_label, self.export_mode_combo)
         layout.addRow(self.bundle_name_label, self.bundle_name_edit)
         layout.addRow(QLabel(""), self.bundle_name_hint_label)
+        layout.addRow(
+            self.report_enabled_label,
+            self._checkbox_cell(self.report_enabled_checkbox),
+        )
+        layout.addRow(self.report_dir_label, self._wrap_layout(report_row))
+        layout.addRow(QLabel(""), self.report_hint_label)
         self._toggle_bundle_name_state()
+        self._toggle_report_state()
         return group
+
+    def _toggle_report_state(self) -> None:
+        enabled = self.report_enabled_checkbox.isChecked()
+        self.report_dir_edit.setEnabled(enabled)
+        self.report_dir_label.setEnabled(enabled)
+        self.browse_report_button.setEnabled(enabled)
+
+    def _browse_report_dir(self) -> None:
+        directory = QFileDialog.getExistingDirectory(
+            self, self._text("report_dir"), self.report_dir_edit.text().strip()
+        )
+        if directory:
+            self.report_dir_edit.setText(directory)
 
     def _build_actions_group(self) -> QGroupBox:
         group = QGroupBox(self._text("execution"))
@@ -1096,6 +1197,10 @@ class MainWindow(QMainWindow):
             pm7_preserve_files=self.pm7_preserve_checkbox.isChecked(),
             mopac_binary=self.mopac_binary_edit.text().strip(),
             run_in_background=self.run_in_background_checkbox.isChecked(),
+            tautomer_enabled=self.tautomer_checkbox.isChecked(),
+            tautomer_backend=str(self.tautomer_backend_combo.currentData()),
+            report_enabled=self.report_enabled_checkbox.isChecked(),
+            report_dir=self.report_dir_edit.text().strip(),
         )
 
     def _start_workflow(self) -> None:
@@ -1126,6 +1231,17 @@ class MainWindow(QMainWindow):
                 "ph": overrides.ph,
                 "backend": overrides.protonation_backend,
                 "enabled": overrides.protonation_backend != "none",
+            },
+            "tautomer": {
+                "enabled": overrides.tautomer_enabled,
+                "backend": overrides.tautomer_backend,
+            },
+            "reporting": {
+                "enabled": overrides.report_enabled,
+                "report_dir": overrides.report_dir
+                or self.base_settings.get("reporting", {}).get(
+                    "report_dir", "data/reports"
+                ),
             },
             "pm7": {
                 "enabled": overrides.pm7_enabled,
