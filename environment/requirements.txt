@@ -6,7 +6,13 @@ PySide6==6.9.2
 pyinstaller>=6.19
 pytest>=8.0
 joblib>=1.3
-# Protonation backends (Reviewer #2): multi-site, substituent-aware
+# Protonation backends
+# MolGpKa (default, v1.3.0): GNN pKa -> iterative dominant microstate.
+# CPU torch + torch-geometric only; the compiled torch-scatter/sparse stack is
+# NOT required (vendored gcn_conv uses a native scatter).
+torch>=2.2
+torch-geometric>=2.4
+# Dimorphite-DL: enumeration backend (multi-site, substituent-aware)
 dimorphite-dl>=1.3
 # PDBQT export (fixes molecule fragmentation in AutoDock pipelines)
 meeko>=0.5

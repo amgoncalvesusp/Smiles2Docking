@@ -18,7 +18,7 @@ Desktop application and Python workflow for preparing ligands from `CSV`, `XLS`,
 
 1. Load spreadsheets with ID and SMILES columns.
 2. Remove salts, counter-ions, and disconnected fragments when the principal fragment is identifiable.
-3. Protonate with a selectable backend (`Dimorphite-DL`, `Open Babel`, or none) at configurable pH, with multi-site treatment and context-aware pKa rules.
+3. Protonate with a selectable backend (`MolGpKa` GNN pKa by default, `Dimorphite-DL` enumeration, `Open Babel`, or none) at configurable pH, returning the dominant microstate or all plausible states.
 4. Generate 3D structures with `RDKit ETKDGv3`.
 5. Optimize geometry with the `MMFF94 → MMFF94s → UFF` force-field cascade.
 6. Optional semi-empirical refinement via `MOPAC PM7` (`PM6`, `PM6-D3H4X`, `PM6-ORG`, `RM1`, `PM3`, `AM1`, `MNDO` also supported); disabled by default to preserve throughput.
@@ -34,15 +34,22 @@ Configurable in `config/settings.yaml` under `protonation.backend`:
 
 | Backend | When to use | Notes |
 |---------|-------------|-------|
-| `dimorphite` (default) | Multi-site curation with context-aware pKa rules | Recognizes substituent effects, neighboring groups, and multiple ionizable centers. Output controlled by `ph`, `ph_tolerance`, `max_variants`, `variant_selection`. |
-| `openbabel` | Compatibility with legacy pipelines or when `Dimorphite-DL` is unavailable | Applies `obabel -p <pH>`; less accurate for molecules with multiple ionizable centers. |
+| `molgpka` (default) | Single dominant protonation state, physically ranked | A graph neural network predicts per-atom pKa; iterative titration re-predicts on the charged intermediate at each step to return the dominant microstate at `ph`. Correctly returns the piperazine mono-cation at `pH 7.4`. |
+| `dimorphite` | Enumerate every plausible state | Returns all Dimorphite-DL states in the pH window (one exported structure per state); does not rank a single dominant state. Controlled by `ph`, `ph_tolerance`, `max_variants`. |
+| `dimorphite_pick` | Legacy single-pick (pre-1.3 reproducibility) | Enumerates then keeps one state (`variant_selection`). |
+| `openbabel` | Compatibility with legacy pipelines | Applies `obabel -p <pH>`; less accurate for molecules with multiple ionizable centers. |
 | `none` | Diagnostics or when input is already protonated | Pass-through; keeps input SMILES unchanged. |
 
-Practical validation with `Dimorphite-DL`:
+Practical validation with `molgpka`:
 
-- `CC(=O)O` at `pH 12` is converted to `CC(=O)[O-]`
-- `CN` at `pH 2` is converted to `C[NH3+]`
-- Diamines such as `NCCCCN` at `pH 7.4` receive selective protonation according to local pKa, avoiding the duplicate protonation typical of `Open Babel`'s `-p` flag.
+- `CC(=O)O` at `pH 7.4` is converted to `CC(=O)[O-]`
+- Piperazine `C1CNCCN1` at `pH 7.4` returns the mono-cation `[NH2+]`, not the doubly protonated form produced by independent per-site rules.
+
+MolGpKa needs `torch` + `torch-geometric` (bundled in the desktop packages; CPU-only, the compiled `torch-scatter`/`torch-sparse` stack is not required).
+
+#### Optional tautomer step
+
+Off by default. Set `tautomer.enabled: true` in `config/settings.yaml` to pick the dominant tautomer before protonation: `rdkit` selects RDKit's canonical tautomer; `sphysnet` ranks candidates with sPhysNet-Taut (an optional extra, not bundled — it needs the compiled `torch-scatter/sparse` stack and ships no explicit licence).
 
 ### Parallelization and scalability
 
@@ -208,7 +215,7 @@ Aplicativo desktop e workflow Python para preparar ligantes a partir de planilha
 
 1. Carregar planilhas com colunas de ID e SMILES.
 2. Remover sais, contraíons e fragmentos desconectados quando o fragmento principal é identificável.
-3. Protonar com backend selecionável (`Dimorphite-DL`, `Open Babel` ou nenhum) em pH configurável, com tratamento multi-sítio e regras de pKa por contexto químico.
+3. Protonar com backend selecionável (`MolGpKa` GNN de pKa por padrão, enumeração `Dimorphite-DL`, `Open Babel` ou nenhum) em pH configurável, retornando o microestado dominante ou todos os estados plausíveis.
 4. Gerar estruturas 3D com `RDKit ETKDGv3`.
 5. Otimizar geometria com a cascata `MMFF94 → MMFF94s → UFF`.
 6. Refinamento semi-empírico opcional via `MOPAC PM7` (`PM6`, `PM6-D3H4X`, `PM6-ORG`, `RM1`, `PM3`, `AM1`, `MNDO` também suportados), desativado por padrão para preservar throughput.
@@ -224,15 +231,22 @@ Configurável em `config/settings.yaml` no campo `protonation.backend`:
 
 | Backend | Quando usar | Observações |
 |---------|-------------|-------------|
-| `dimorphite` (padrão) | Curadoria multi-sítio com regras de pKa contextuais | Reconhece efeitos de substituintes, vizinhança e múltiplos centros ionizáveis. Saída controlada por `ph`, `ph_tolerance`, `max_variants`, `variant_selection`. |
-| `openbabel` | Compatibilidade com pipelines legados ou ausência de `Dimorphite-DL` | Aplica `obabel -p <pH>`; menos preciso em moléculas com vários centros ionizáveis. |
+| `molgpka` (padrão) | Estado de protonação dominante único, ranqueado fisicamente | Uma rede neural de grafos prevê o pKa por átomo; a titulação iterativa reprevê no intermediário carregado a cada passo para retornar o microestado dominante em `ph`. Retorna corretamente o mono-cátion da piperazina em `pH 7.4`. |
+| `dimorphite` | Enumerar todos os estados plausíveis | Retorna todos os estados do Dimorphite-DL na janela de pH (uma estrutura exportada por estado); não ranqueia um estado dominante. Controlado por `ph`, `ph_tolerance`, `max_variants`. |
+| `dimorphite_pick` | Escolha única legada (reprodutibilidade pré-1.3) | Enumera e mantém um estado (`variant_selection`). |
+| `openbabel` | Compatibilidade com pipelines legados | Aplica `obabel -p <pH>`; menos preciso em moléculas com vários centros ionizáveis. |
 | `none` | Diagnóstico ou quando a entrada já está protonada | Pass-through, mantém o SMILES de entrada. |
 
-Validação prática com `Dimorphite-DL`:
+Validação prática com `molgpka`:
 
-- `CC(=O)O` em `pH 12` é convertido para `CC(=O)[O-]`
-- `CN` em `pH 2` é convertido para `C[NH3+]`
-- Diaminas como `NCCCCN` em `pH 7.4` recebem protonação seletiva conforme o pKa local, evitando a protonação duplicada característica do modo `-p` do Open Babel.
+- `CC(=O)O` em `pH 7.4` é convertido para `CC(=O)[O-]`
+- Piperazina `C1CNCCN1` em `pH 7.4` retorna o mono-cátion `[NH2+]`, não a forma duplamente protonada produzida por regras independentes por sítio.
+
+O MolGpKa requer `torch` + `torch-geometric` (empacotados nos pacotes desktop; apenas CPU, sem a stack compilada `torch-scatter`/`torch-sparse`).
+
+#### Etapa opcional de tautômeros
+
+Desativada por padrão. Defina `tautomer.enabled: true` em `config/settings.yaml` para escolher o tautômero dominante antes da protonação: `rdkit` seleciona o tautômero canônico do RDKit; `sphysnet` ranqueia candidatos com o sPhysNet-Taut (extra opcional, não empacotado — requer a stack compilada `torch-scatter/sparse` e não possui licença explícita).
 
 ### Paralelização e escalabilidade
 

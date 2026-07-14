@@ -1,3 +1,42 @@
+# SMILES2Docking v1.3.0
+
+## English
+
+This release overhauls protonation and adds an optional tautomer step, in
+response to peer review.
+
+### Protonation
+
+- **New default backend: MolGpKa.** A graph neural network predicts per-atom
+  pKa; an iterative titration protocol then re-predicts on the charged
+  intermediate at each step to return the physically dominant protonation
+  microstate at the target pH. This correctly returns the mono-cation for
+  piperazine at pH 7.4, where independent per-site rules over-protonate.
+- **Dimorphite-DL is now an enumeration backend.** Instead of silently
+  returning one arbitrary state it returns every plausible protonation state
+  (one exported structure per state). The legacy single-pick behaviour remains
+  available as `dimorphite_pick`.
+- Backends selectable in the GUI and `config/settings.yaml`
+  (`molgpka | dimorphite | dimorphite_pick | openbabel | none`).
+
+### Tautomers (optional, off by default)
+
+- Optional dominant-tautomer selection before protonation: RDKit enumerates
+  tautomers; the `rdkit` backend picks the canonical tautomer, and the
+  `sphysnet` backend ranks with sPhysNet-Taut. sPhysNet-Taut is an optional
+  extra and is **not** bundled (it needs the compiled torch-scatter/sparse
+  stack and ships no explicit licence).
+
+### Packaging notes
+
+- MolGpKa ships bundled in all desktop packages (CPU PyTorch +
+  torch-geometric; the compiled torch-scatter/sparse extensions are not
+  required). Installers are correspondingly larger.
+- Windows portable ZIP and installer include MOPAC 23.2.4; Linux/macOS do not
+  bundle MOPAC. MOPAC refinement stays disabled by default.
+
+---
+
 # SMILES2Docking v1.2.1
 
 ## English

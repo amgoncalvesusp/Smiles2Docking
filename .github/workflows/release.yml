@@ -30,8 +30,13 @@ jobs:
       - name: Install dependencies
         run: |
           conda install -y -c conda-forge rdkit openbabel
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r environment/requirements.txt
       - name: Build
+        env:
+          # torch's libiomp coexists with conda MKL; without this collect_all("torch")
+          # aborts with OMP Error #15 during PyInstaller submodule collection.
+          KMP_DUPLICATE_LIB_OK: "TRUE"
         run: pyinstaller --noconfirm --clean packaging/windows/smiles2docking.spec
       - name: Install Inno Setup
         shell: powershell
@@ -70,6 +75,7 @@ jobs:
       - name: Install dependencies
         run: |
           conda install -y -c conda-forge rdkit openbabel
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r environment/requirements.txt
       - name: Install appimagetool
         shell: bash
@@ -80,6 +86,7 @@ jobs:
       - name: Build AppImage
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
+          KMP_DUPLICATE_LIB_OK: "TRUE"
         run: bash packaging/linux/build_portable.sh
       - name: Rename artifacts
         run: |
@@ -112,8 +119,11 @@ jobs:
       - name: Install dependencies
         run: |
           conda install -y -c conda-forge rdkit openbabel
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r environment/requirements.txt
       - name: Build
+        env:
+          KMP_DUPLICATE_LIB_OK: "TRUE"
         run: pyinstaller --noconfirm --clean packaging/macos/smiles2docking.spec
       - name: Package
         run: |

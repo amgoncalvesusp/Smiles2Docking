@@ -43,6 +43,12 @@ qt_platforms_dir = _resolve_qt_platforms_dir()
 # not register for importlib.resources.files("dimorphite_dl.smarts").
 dimorphite_datas, dimorphite_binaries, dimorphite_hiddenimports = collect_all("dimorphite_dl")
 
+# MolGpKa (default protonation backend) needs torch + torch-geometric. The
+# compiled torch-scatter/sparse stack is deliberately NOT required (the vendored
+# gcn_conv uses a native scatter), so only these two trees are collected.
+torch_datas, torch_binaries, torch_hiddenimports = collect_all("torch")
+pyg_datas, pyg_binaries, pyg_hiddenimports = collect_all("torch_geometric")
+
 rdkit_hiddenimports = sorted(
     set(
         collect_submodules("rdkit")
@@ -71,6 +77,8 @@ hiddenimports = sorted(
         + collect_submodules("meeko")
         + collect_submodules("scipy")
         + dimorphite_hiddenimports
+        + torch_hiddenimports
+        + pyg_hiddenimports
         + [
             "openpyxl",
             "openpyxl.cell",
@@ -85,11 +93,30 @@ hiddenimports = sorted(
             "scipy",
             "gemmi",
             "dimorphite_dl",
+            "torch",
+            "torch_geometric",
+            # MolGpKa backend is imported lazily via the factory, so its modules
+            # must be pinned explicitly for static analysis to include them.
+            "src.protonation.molgpka_adapter",
+            "src.protonation.molgpka",
+            "src.protonation.molgpka.net",
+            "src.protonation.molgpka.gcn_conv",
+            "src.protonation.molgpka.descriptor",
+            "src.protonation.molgpka.ionization_group",
+            "src.protonation.molgpka.predict_pka",
+            "src.tautomer.factory",
+            "src.tautomer.rdkit_adapter",
+            "src.tautomer.sphysnet_adapter",
         ]
     )
 )
 
-datas = collect_data_files("rdkit") + collect_data_files("meeko") + dimorphite_datas + [
+datas = collect_data_files("rdkit") + collect_data_files("meeko") + dimorphite_datas + torch_datas + pyg_datas + [
+    # MolGpKa vendored inference data (weights + SMARTS + licence). Placed at
+    # the package path the code resolves via os.path.dirname(__file__).
+    (str(project_root / "src" / "protonation" / "molgpka" / "models"), "src/protonation/molgpka/models"),
+    (str(project_root / "src" / "protonation" / "molgpka" / "smarts_pattern.tsv"), "src/protonation/molgpka"),
+    (str(project_root / "src" / "protonation" / "molgpka" / "LICENSE.md"), "src/protonation/molgpka"),
     (str(project_root / "assets"), "assets"),
     (str(project_root / "config"), "config"),
     (str(project_root / "docs"), "docs"),
@@ -104,7 +131,7 @@ datas = collect_data_files("rdkit") + collect_data_files("meeko") + dimorphite_d
     (str(qt_platforms_dir), "platforms"),
 ]
 
-binaries = collect_dynamic_libs("rdkit") + collect_dynamic_libs("scipy") + collect_dynamic_libs("gemmi") + dimorphite_binaries
+binaries = collect_dynamic_libs("rdkit") + collect_dynamic_libs("scipy") + collect_dynamic_libs("gemmi") + dimorphite_binaries + torch_binaries + pyg_binaries
 
 excludes = [
     "tests",

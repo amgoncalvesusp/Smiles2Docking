@@ -11,6 +11,30 @@ rdkit_datas, rdkit_binaries, rdkit_hiddenimports = collect_all("rdkit")
 matplotlib_datas, matplotlib_binaries, matplotlib_hiddenimports = collect_all("matplotlib")
 # v1.2: protonation (dimorphite) + PDBQT export (meeko + transitive scipy/gemmi)
 dimorphite_datas, dimorphite_binaries, dimorphite_hiddenimports = collect_all("dimorphite_dl")
+
+# v1.3.0: MolGpKa default protonation backend (torch + torch-geometric only).
+torch_datas, torch_binaries, torch_hiddenimports = collect_all("torch")
+pyg_datas, pyg_binaries, pyg_hiddenimports = collect_all("torch_geometric")
+molgpka_root = project_root / "src" / "protonation" / "molgpka"
+molgpka_datas = [
+    (str(molgpka_root / "models"), "src/protonation/molgpka/models"),
+    (str(molgpka_root / "smarts_pattern.tsv"), "src/protonation/molgpka"),
+    (str(molgpka_root / "LICENSE.md"), "src/protonation/molgpka"),
+]
+molgpka_hiddenimports = [
+    "torch",
+    "torch_geometric",
+    "src.protonation.molgpka_adapter",
+    "src.protonation.molgpka",
+    "src.protonation.molgpka.net",
+    "src.protonation.molgpka.gcn_conv",
+    "src.protonation.molgpka.descriptor",
+    "src.protonation.molgpka.ionization_group",
+    "src.protonation.molgpka.predict_pka",
+    "src.tautomer.factory",
+    "src.tautomer.rdkit_adapter",
+    "src.tautomer.sphysnet_adapter",
+]
 meeko_datas, meeko_binaries, meeko_hiddenimports = collect_all("meeko")
 scipy_datas, scipy_binaries, scipy_hiddenimports = collect_all("scipy")
 gemmi_datas, gemmi_binaries, gemmi_hiddenimports = collect_all("gemmi")
@@ -74,6 +98,9 @@ hiddenimports = sorted(
         + meeko_hiddenimports
         + scipy_hiddenimports
         + gemmi_hiddenimports
+        + torch_hiddenimports
+        + pyg_hiddenimports
+        + molgpka_hiddenimports
         + ["matplotlib.backends.backend_pdf"]
     )
 )
@@ -82,9 +109,11 @@ a = Analysis(
     [str(project_root / "scripts" / "run_gui.py")],
     pathex=[str(project_root)],
     binaries=rdkit_binaries + matplotlib_binaries + pyside_binaries + openbabel_binaries
-    + dimorphite_binaries + meeko_binaries + scipy_binaries + gemmi_binaries,
+    + dimorphite_binaries + meeko_binaries + scipy_binaries + gemmi_binaries
+    + torch_binaries + pyg_binaries,
     datas=rdkit_datas + matplotlib_datas + pyside_datas + project_datas + openbabel_datas
-    + dimorphite_datas + meeko_datas + scipy_datas + gemmi_datas,
+    + dimorphite_datas + meeko_datas + scipy_datas + gemmi_datas
+    + torch_datas + pyg_datas + molgpka_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

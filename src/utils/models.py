@@ -27,6 +27,7 @@ class RunReport:
     pm7_preserved_files_dir: str | None = None
     total_records_retrieved: int = 0
     total_smiles_evaluated: int = 0
+    protonation_states_generated: int = 0
     invalid_smiles: int = 0
     molecules_successfully_cleaned: int = 0
     molecules_with_salts_removed: int = 0
