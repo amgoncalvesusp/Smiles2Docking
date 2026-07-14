@@ -78,6 +78,7 @@ parallel:
   batch_size: auto           # joblib batch_size
 
 reporting:
+  enabled: true              # write the per-run JSON audit report (one entry per compound)
   report_dir: data/reports
   use_output_dir: true
 
