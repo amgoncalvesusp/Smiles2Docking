@@ -151,6 +151,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="SMILES2Docking.app",
-    icon=None,
+    icon=str(project_root / "assets" / "smiles2docking.icns"),
     bundle_identifier="org.usp.smiles2docking",
 )

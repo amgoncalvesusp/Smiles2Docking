@@ -179,6 +179,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="SMILES2DockingDesktop",
+    icon=str(project_root / "assets" / "caffeine_icon.ico"),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
