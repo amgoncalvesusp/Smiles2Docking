@@ -79,7 +79,11 @@ LANGUAGE_TEXT = {
         "protonation_backend_hint": "MolGpKa predicts the dominant protonation state via a GNN pKa model (recommended). Dimorphite-DL (all states) enumerates every plausible state; (single) picks one. Open Babel uses the legacy -p mode. None disables protonation.",
         "tautomer": "Dominant tautomer",
         "tautomer_backend": "Tautomer ranking",
-        "tautomer_hint": "Optional and off by default. When enabled, tautomers are enumerated with RDKit and the dominant one is selected before protonation. sPhysNet-Taut ranks by predicted aqueous ratio (optional extra install); RDKit uses its canonical tautomer.",
+        "tautomer_hint": "Optional and off by default. When enabled, the dominant tautomer is selected before protonation. RDKit uses its canonical tautomer (bundled). sPhysNet-Taut is an external tool you install separately; it also protonates at the target pH, so the protonation backend is bypassed for it.",
+        "tautomer_script": "sPhysNet-Taut script",
+        "tautomer_script_hint": "Path to predict_tautomer.py from the cloned sPhysNet-Taut repository.",
+        "tautomer_python": "sPhysNet-Taut env python",
+        "tautomer_python_hint": "Python executable of the conda env where sPhysNet-Taut is installed (leave blank to use 'python').",
         "skip_undefined_stereo": "Skip undefined stereochemistry",
         "strict_stereo": "Enumerate undefined stereochemistry",
         "strict_stereo_single_only": "Only when exactly one center is undefined",
@@ -167,7 +171,11 @@ LANGUAGE_TEXT = {
         "protonation_backend_hint": "MolGpKa preve o estado de protonacao dominante via modelo GNN de pKa (recomendado). Dimorphite-DL (todos os estados) enumera cada estado plausivel; (unico) escolhe um. Open Babel usa o modo legado -p. Nenhuma desativa a protonacao.",
         "tautomer": "Tautomero dominante",
         "tautomer_backend": "Ranqueamento de tautomeros",
-        "tautomer_hint": "Opcional e desativado por padrao. Quando ativado, os tautomeros sao enumerados com RDKit e o dominante e selecionado antes da protonacao. sPhysNet-Taut ordena pela razao aquosa prevista (instalacao extra opcional); RDKit usa seu tautomero canonico.",
+        "tautomer_hint": "Opcional e desativado por padrao. Quando ativado, o tautomero dominante e selecionado antes da protonacao. RDKit usa seu tautomero canonico (embutido). sPhysNet-Taut e uma ferramenta externa instalada separadamente; ela tambem protona no pH alvo, entao o backend de protonacao e ignorado para ela.",
+        "tautomer_script": "Script sPhysNet-Taut",
+        "tautomer_script_hint": "Caminho para predict_tautomer.py do repositorio sPhysNet-Taut clonado.",
+        "tautomer_python": "Python do env sPhysNet-Taut",
+        "tautomer_python_hint": "Executavel python do env conda onde o sPhysNet-Taut esta instalado (deixe vazio para usar 'python').",
         "skip_undefined_stereo": "Ignorar estereoquimica indefinida",
         "strict_stereo": "Enumerar estereoquimica indefinida",
         "strict_stereo_single_only": "Apenas quando exatamente um centro estiver indefinido",
@@ -263,6 +271,8 @@ class WorkflowOverrides:
     run_in_background: bool
     tautomer_enabled: bool
     tautomer_backend: str
+    tautomer_script: str
+    tautomer_python: str
     report_enabled: bool
     report_dir: str
 
@@ -360,6 +370,12 @@ class MainWindow(QMainWindow):
         self.tautomer_label.setText(self._text("tautomer"))
         self.tautomer_backend_label.setText(self._text("tautomer_backend"))
         self.tautomer_hint_label.setText(self._text("tautomer_hint"))
+        self.tautomer_script_label.setText(self._text("tautomer_script"))
+        self.tautomer_script_hint_label.setText(self._text("tautomer_script_hint"))
+        self.tautomer_python_label.setText(self._text("tautomer_python"))
+        self.tautomer_python_hint_label.setText(self._text("tautomer_python_hint"))
+        self.browse_tautomer_script_button.setText(self._text("browse"))
+        self.browse_tautomer_python_button.setText(self._text("browse"))
         self.skip_undefined_stereo_label.setText(self._text("skip_undefined_stereo"))
         self.skip_undefined_stereo_hint_label.setText(SKIP_UNDEFINED_STEREO_EXPLANATION)
         self.strict_stereo_label.setText(self._text("strict_stereo"))
@@ -609,6 +625,26 @@ class MainWindow(QMainWindow):
         )
         if tautomer_backend_index >= 0:
             self.tautomer_backend_combo.setCurrentIndex(tautomer_backend_index)
+        self.tautomer_backend_combo.currentIndexChanged.connect(
+            self._toggle_tautomer_state
+        )
+        _sphysnet_cfg = self.base_settings.get("tautomer", {}).get("sphysnet", {})
+        self.tautomer_script_edit = QLineEdit(str(_sphysnet_cfg.get("script_path", "")))
+        browse_taut_script = QPushButton(self._text("browse"))
+        browse_taut_script.clicked.connect(self._browse_tautomer_script)
+        self.browse_tautomer_script_button = browse_taut_script
+        taut_script_row = QHBoxLayout()
+        taut_script_row.addWidget(self.tautomer_script_edit, 1)
+        taut_script_row.addWidget(browse_taut_script)
+        self.tautomer_script_row = self._wrap_layout(taut_script_row)
+        self.tautomer_python_edit = QLineEdit(str(_sphysnet_cfg.get("python", "")))
+        browse_taut_python = QPushButton(self._text("browse"))
+        browse_taut_python.clicked.connect(self._browse_tautomer_python)
+        self.browse_tautomer_python_button = browse_taut_python
+        taut_python_row = QHBoxLayout()
+        taut_python_row.addWidget(self.tautomer_python_edit, 1)
+        taut_python_row.addWidget(browse_taut_python)
+        self.tautomer_python_row = self._wrap_layout(taut_python_row)
         self.skip_undefined_stereo_checkbox = QCheckBox("")
         self.skip_undefined_stereo_checkbox.setChecked(
             bool(
@@ -691,6 +727,14 @@ class MainWindow(QMainWindow):
         self.tautomer_hint_label = QLabel(self._text("tautomer_hint"))
         self.tautomer_hint_label.setObjectName("fieldHintLabel")
         self.tautomer_hint_label.setWordWrap(True)
+        self.tautomer_script_label = QLabel(self._text("tautomer_script"))
+        self.tautomer_script_hint_label = QLabel(self._text("tautomer_script_hint"))
+        self.tautomer_script_hint_label.setObjectName("fieldHintLabel")
+        self.tautomer_script_hint_label.setWordWrap(True)
+        self.tautomer_python_label = QLabel(self._text("tautomer_python"))
+        self.tautomer_python_hint_label = QLabel(self._text("tautomer_python_hint"))
+        self.tautomer_python_hint_label.setObjectName("fieldHintLabel")
+        self.tautomer_python_hint_label.setWordWrap(True)
         self.pm7_label = QLabel(self._text("pm7"))
         self.skip_undefined_stereo_label = QLabel(self._text("skip_undefined_stereo"))
         self.skip_undefined_stereo_hint_label = QLabel(
@@ -729,6 +773,10 @@ class MainWindow(QMainWindow):
         layout.addRow(self.tautomer_label, self._checkbox_cell(self.tautomer_checkbox))
         layout.addRow(self.tautomer_backend_label, self.tautomer_backend_combo)
         layout.addRow(QLabel(""), self.tautomer_hint_label)
+        layout.addRow(self.tautomer_script_label, self.tautomer_script_row)
+        layout.addRow(QLabel(""), self.tautomer_script_hint_label)
+        layout.addRow(self.tautomer_python_label, self.tautomer_python_row)
+        layout.addRow(QLabel(""), self.tautomer_python_hint_label)
         layout.addRow(
             self.skip_undefined_stereo_label,
             self._checkbox_cell(self.skip_undefined_stereo_checkbox),
@@ -767,6 +815,36 @@ class MainWindow(QMainWindow):
         enabled = self.tautomer_checkbox.isChecked()
         self.tautomer_backend_combo.setEnabled(enabled)
         self.tautomer_backend_label.setEnabled(enabled)
+        # The sPhysNet-Taut path fields are only relevant for that external backend.
+        is_sphysnet = str(self.tautomer_backend_combo.currentData()) == "sphysnet"
+        show = enabled and is_sphysnet
+        for widget in (
+            self.tautomer_script_label,
+            self.tautomer_script_row,
+            self.tautomer_script_hint_label,
+            self.tautomer_python_label,
+            self.tautomer_python_row,
+            self.tautomer_python_hint_label,
+        ):
+            widget.setVisible(show)
+
+    def _browse_tautomer_script(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._text("tautomer_script"),
+            self.tautomer_script_edit.text().strip(),
+        )
+        if path:
+            self.tautomer_script_edit.setText(path)
+
+    def _browse_tautomer_python(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._text("tautomer_python"),
+            self.tautomer_python_edit.text().strip(),
+        )
+        if path:
+            self.tautomer_python_edit.setText(path)
 
     def _build_output_group(self) -> QGroupBox:
         group = QGroupBox(self._text("output"))
@@ -1199,6 +1277,8 @@ class MainWindow(QMainWindow):
             run_in_background=self.run_in_background_checkbox.isChecked(),
             tautomer_enabled=self.tautomer_checkbox.isChecked(),
             tautomer_backend=str(self.tautomer_backend_combo.currentData()),
+            tautomer_script=self.tautomer_script_edit.text().strip(),
+            tautomer_python=self.tautomer_python_edit.text().strip(),
             report_enabled=self.report_enabled_checkbox.isChecked(),
             report_dir=self.report_dir_edit.text().strip(),
         )
@@ -1235,6 +1315,15 @@ class MainWindow(QMainWindow):
             "tautomer": {
                 "enabled": overrides.tautomer_enabled,
                 "backend": overrides.tautomer_backend,
+                "sphysnet": {
+                    "script_path": overrides.tautomer_script,
+                    "python": overrides.tautomer_python,
+                    "num_confs": int(
+                        self.base_settings.get("tautomer", {})
+                        .get("sphysnet", {})
+                        .get("num_confs", 100)
+                    ),
+                },
             },
             "reporting": {
                 "enabled": overrides.report_enabled,

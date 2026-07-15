@@ -41,9 +41,52 @@ def test_enumerate_includes_both_tautomers() -> None:
     assert _canon("CC=O") in smis
 
 
-def test_sphysnet_missing_dependency_is_actionable() -> None:
+def test_sphysnet_missing_script_is_actionable() -> None:
     taut = build_tautomerizer({"enabled": True, "backend": "sphysnet"})
-    # 2-pyridone <-> 2-hydroxypyridine has multiple tautomers, forcing ranking.
     with pytest.raises(TautomerError) as excinfo:
         taut.dominant_tautomer("O=c1cccc[nH]1", "pyridone")
     assert "sPhysNet-Taut" in str(excinfo.value)
+
+
+def test_sphysnet_produces_protonated_flag() -> None:
+    taut = build_tautomerizer({"enabled": True, "backend": "sphysnet"})
+    assert getattr(taut, "produces_protonated", False) is True
+
+
+def test_sphysnet_parse_dominant_picks_lowest_energy_protonated() -> None:
+    from src.tautomer.sphysnet_adapter import _parse_dominant
+
+    stdout = (
+        "some log line\n"
+        "[{'tsmi': 'CCC(=O)CC(C)=O', 'psmis': ['CCC(=O)CC(C)=O'], 'score': '0.0', "
+        "'label': 'low_energy'}, {'tsmi': 'CCC(=O)C=C(C)O', 'psmis': "
+        "['CCC(=O)C=C(C)O'], 'score': '0.4', 'label': 'low_energy'}]\n"
+    )
+    result = _parse_dominant(stdout, "CCC(=O)CC(C)=O", "L")
+    assert _canon(result) == _canon("CCC(=O)CC(C)=O")
+
+
+def test_sphysnet_runs_external_script(tmp_path) -> None:
+    import sys
+
+    # A stand-in for predict_tautomer.py: prints the sPhysNet-Taut record list.
+    fake = tmp_path / "predict_tautomer.py"
+    fake.write_text(
+        "print([{'tsmi': 'CC(=O)C', 'psmis': ['CC(=O)C'], "
+        "'score': '0.0', 'label': 'low_energy'}])\n",
+        encoding="utf-8",
+    )
+    taut = build_tautomerizer(
+        {
+            "enabled": True,
+            "backend": "sphysnet",
+            "ph": 7.4,
+            "sphysnet": {
+                "script_path": str(fake),
+                "python": sys.executable,
+                "num_confs": 1,
+            },
+        }
+    )
+    result = taut.dominant_tautomer("CC(=O)C", "acetone")
+    assert _canon(result) == _canon("CC(=O)C")

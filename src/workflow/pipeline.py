@@ -118,13 +118,18 @@ def _build_components(settings: dict[str, Any]) -> _Components:
     pm7_optimizer = (
         MopacOptimizer(pm7_settings) if pm7_settings.get("enabled", False) else None
     )
+    # The tautomer step may protonate at the target pH (sPhysNet-Taut), so it is
+    # given the same pH as the protonation stage.
+    tautomer_settings = dict(settings.get("tautomer") or {})
+    if "ph" not in tautomer_settings:
+        tautomer_settings["ph"] = settings.get("protonation", {}).get("ph", 7.4)
     return _Components(
         cleaner=SmilesCleaner(settings["processing"]),
         validator=StructureValidator(settings["processing"]),
         protonator=build_protonator(settings["protonation"]),
         builder=StructureBuilder(settings["structure_generation"]),
         pm7_optimizer=pm7_optimizer,
-        tautomerizer=build_tautomerizer(settings.get("tautomer")),
+        tautomerizer=build_tautomerizer(tautomer_settings),
     )
 
 
@@ -209,13 +214,22 @@ def _prepare_record(record: Any, components: _Components) -> _RecordOutcome:
         for variant in variants:
             try:
                 variant_smiles = variant.smiles
+                already_protonated = False
                 if tautomerizer is not None:
                     variant_smiles = tautomerizer.dominant_tautomer(
                         variant_smiles, variant.access_code
                     )
-                states = iter_protonation_states(
-                    protonator, variant_smiles, variant.access_code
-                )
+                    # sPhysNet-Taut protonates at the requested pH as part of the
+                    # tautomer step; its output must not be protonated again.
+                    already_protonated = getattr(
+                        tautomerizer, "produces_protonated", False
+                    )
+                if already_protonated:
+                    states = [variant_smiles]
+                else:
+                    states = iter_protonation_states(
+                        protonator, variant_smiles, variant.access_code
+                    )
             except VARIANT_ERRORS as exc:
                 prepared.append(
                     _VariantResult(access_code=variant.access_code, error=str(exc))
