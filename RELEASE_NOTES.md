@@ -1,3 +1,27 @@
+# SMILES2Docking v1.3.1
+
+## English
+
+Bug-fix and feature release following user testing of v1.3.0.
+
+- **Linux fix.** The MolGpKa backend failed on the Linux AppImage with
+  `libcrypto.so.3: version 'OPENSSL_3.3.0' not found` because the bundle shipped
+  an older OpenSSL for the conda-forge `_ssl` extension. The Linux build now
+  bundles the matching `libssl`/`libcrypto`, so MolGpKa loads on Linux.
+- **MolGpKa small-amine fix.** A per-site chemical prior corrects MolGpKa's
+  out-of-distribution under-prediction for small, unactivated aliphatic amines
+  (methylamine, ethylamine, tert-butylamine, ...), which are now protonated as
+  expected at physiological pH. Activated amines (electron-withdrawing groups)
+  and coupled centres are left to the model.
+- **sPhysNet-Taut tautomer backend.** The optional tautomer step can now call an
+  externally installed sPhysNet-Taut (`predict_tautomer.py`) as a subprocess on
+  Windows and Linux. It ranks tautomers by predicted aqueous free energy and, at
+  the target pH, returns the dominant tautomer already protonated. The GUI
+  exposes the script and environment-python paths; installation steps are in the
+  README. RDKit canonical tautomer selection remains bundled.
+
+---
+
 # SMILES2Docking v1.3.0
 
 ## English
