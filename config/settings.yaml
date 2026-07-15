@@ -18,6 +18,7 @@ protonation:
   enabled: true
   backend: molgpka           # molgpka | dimorphite | dimorphite_pick | openbabel | none
   ph: 7.4
+  amine_prior: true          # molgpka: chemical prior fixing OOD small aliphatic amines
   obabel_binary: obabel
   temp_dir: data/intermediate/tmp/protonation
   # Dimorphite-DL backend parameters
