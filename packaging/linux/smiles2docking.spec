@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import glob
 from pathlib import Path
 import sys
 
@@ -6,6 +7,17 @@ from PyInstaller.utils.hooks import collect_all
 
 project_root = Path.cwd()
 env_prefix = Path(sys.prefix)
+
+# v1.3.x Linux fix: PyInstaller's dependency scan can bundle the host's older
+# libcrypto/libssl for the conda-forge _ssl extension (built against a newer
+# OpenSSL), producing a runtime "version `OPENSSL_3.3.0' not found" error that
+# breaks any backend importing ssl (e.g. MolGpKa via torch). Bundle the conda
+# env's own OpenSSL libraries at the bundle root so _ssl resolves the matching
+# versions. OpenBabel is unaffected because it shells out to a binary.
+openssl_binaries = []
+for _pattern in ("libssl.so*", "libcrypto.so*"):
+    for _lib in glob.glob(str(env_prefix / "lib" / _pattern)):
+        openssl_binaries.append((_lib, "."))
 
 rdkit_datas, rdkit_binaries, rdkit_hiddenimports = collect_all("rdkit")
 matplotlib_datas, matplotlib_binaries, matplotlib_hiddenimports = collect_all("matplotlib")
@@ -110,7 +122,7 @@ a = Analysis(
     pathex=[str(project_root)],
     binaries=rdkit_binaries + matplotlib_binaries + pyside_binaries + openbabel_binaries
     + dimorphite_binaries + meeko_binaries + scipy_binaries + gemmi_binaries
-    + torch_binaries + pyg_binaries,
+    + torch_binaries + pyg_binaries + openssl_binaries,
     datas=rdkit_datas + matplotlib_datas + pyside_datas + project_datas + openbabel_datas
     + dimorphite_datas + meeko_datas + scipy_datas + gemmi_datas
     + torch_datas + pyg_datas + molgpka_datas,

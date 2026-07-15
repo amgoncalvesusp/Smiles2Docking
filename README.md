@@ -49,7 +49,24 @@ MolGpKa needs `torch` + `torch-geometric` (bundled in the desktop packages; CPU-
 
 #### Optional tautomer step
 
-Off by default. Set `tautomer.enabled: true` in `config/settings.yaml` to pick the dominant tautomer before protonation: `rdkit` selects RDKit's canonical tautomer; `sphysnet` ranks candidates with sPhysNet-Taut (an optional extra, not bundled — it needs the compiled `torch-scatter/sparse` stack and ships no explicit licence).
+Off by default. Set `tautomer.enabled: true` in `config/settings.yaml` (or use the GUI toggle) to pick the dominant tautomer before protonation.
+
+- **`rdkit`** (bundled): selects RDKit's canonical tautomer. No extra install.
+- **`sphysnet`** (external, not bundled): runs sPhysNet-Taut, which ranks tautomers by predicted aqueous free energy and, at the target pH, returns the dominant tautomer **already protonated** — so the protonation backend is bypassed for it. sPhysNet-Taut needs the compiled `torch-scatter/sparse` stack and ships no explicit licence, so you install it yourself in a dedicated environment:
+
+```bash
+git clone https://github.com/xiaolinpan/sPhysNet-Taut.git
+conda env create -n tautomer_selection -f sPhysNet-Taut/environment.yaml
+conda activate tautomer_selection
+conda install treelib
+```
+
+Then, with the tautomer step enabled and `sphysnet` selected, point SMILES2Docking at the tool:
+
+- **sPhysNet-Taut script**: the path to `sPhysNet-Taut/predict_tautomer.py`.
+- **sPhysNet-Taut env python**: the `python` executable of the `tautomer_selection` env (leave blank to use the `python` on your `PATH`).
+
+Under the hood, for each ligand the tool is invoked as `python predict_tautomer.py --smi "<SMILES>" --num_confs 100 --ionization 1 --ph <pH>`; the lowest-energy record's protonated SMILES is used to build the 3D structure. The 100-conformer sampling makes this considerably slower than the other backends, so it suits small, curated series.
 
 ### Parallelization and scalability
 
@@ -246,7 +263,24 @@ O MolGpKa requer `torch` + `torch-geometric` (empacotados nos pacotes desktop; a
 
 #### Etapa opcional de tautômeros
 
-Desativada por padrão. Defina `tautomer.enabled: true` em `config/settings.yaml` para escolher o tautômero dominante antes da protonação: `rdkit` seleciona o tautômero canônico do RDKit; `sphysnet` ranqueia candidatos com o sPhysNet-Taut (extra opcional, não empacotado — requer a stack compilada `torch-scatter/sparse` e não possui licença explícita).
+Desativada por padrão. Defina `tautomer.enabled: true` em `config/settings.yaml` (ou use o botão na GUI) para escolher o tautômero dominante antes da protonação.
+
+- **`rdkit`** (embutido): seleciona o tautômero canônico do RDKit. Sem instalação extra.
+- **`sphysnet`** (externo, não empacotado): executa o sPhysNet-Taut, que ranqueia tautômeros pela energia livre aquosa prevista e, no pH alvo, retorna o tautômero dominante **já protonado** — então o backend de protonação é ignorado para ele. O sPhysNet-Taut requer a stack compilada `torch-scatter/sparse` e não possui licença explícita, então você o instala em um ambiente dedicado:
+
+```bash
+git clone https://github.com/xiaolinpan/sPhysNet-Taut.git
+conda env create -n tautomer_selection -f sPhysNet-Taut/environment.yaml
+conda activate tautomer_selection
+conda install treelib
+```
+
+Depois, com a etapa de tautômeros ativada e `sphysnet` selecionado, indique ao SMILES2Docking:
+
+- **Script sPhysNet-Taut**: caminho para `sPhysNet-Taut/predict_tautomer.py`.
+- **Python do env sPhysNet-Taut**: executável `python` do ambiente `tautomer_selection` (deixe vazio para usar o `python` do `PATH`).
+
+Internamente, para cada ligante a ferramenta é chamada como `python predict_tautomer.py --smi "<SMILES>" --num_confs 100 --ionization 1 --ph <pH>`; o SMILES protonado do registro de menor energia é usado para gerar a estrutura 3D. A amostragem de 100 confôrmeros torna isso bem mais lento que os outros backends, adequado a séries pequenas e curadas.
 
 ### Paralelização e escalabilidade
 
