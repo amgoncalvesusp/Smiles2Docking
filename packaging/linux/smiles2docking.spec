@@ -66,6 +66,12 @@ project_datas = [
     (str(project_root / "AUTHORS.md"), "."),
     (str(project_root / "CITATION.cff"), "."),
     (str(project_root / "LICENSE"), "."),
+    # Bundle the Linux MOPAC binary + its libraries under vendor/mopac so the
+    # runtime resolver finds vendor/mopac/bin/mopac (RUNPATH $ORIGIN/../lib picks
+    # up the libmopac/libiomp5 in vendor/mopac/lib).
+    (str(project_root / "vendor" / "mopac-linux" / "bin"), "vendor/mopac/bin"),
+    (str(project_root / "vendor" / "mopac-linux" / "lib"), "vendor/mopac/lib"),
+    (str(project_root / "vendor" / "mopac-linux" / "LICENSE"), "vendor/mopac"),
 ]
 
 openbabel_datas = []

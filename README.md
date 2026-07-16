@@ -52,7 +52,7 @@ MolGpKa needs `torch` + `torch-geometric` (bundled in the desktop packages; CPU-
 Off by default. Set `tautomer.enabled: true` in `config/settings.yaml` (or use the GUI toggle) to pick the dominant tautomer before protonation.
 
 - **`rdkit`** (bundled): selects RDKit's canonical tautomer. No extra install.
-- **`sphysnet`** (external, not bundled): runs sPhysNet-Taut, which ranks tautomers by predicted aqueous free energy and, at the target pH, returns the dominant tautomer **already protonated** — so the protonation backend is bypassed for it. sPhysNet-Taut needs the compiled `torch-scatter/sparse` stack and ships no explicit licence, so you install it yourself in a dedicated environment:
+- **`sphysnet`** (external, not bundled, **Linux only**): runs sPhysNet-Taut, which ranks tautomers by predicted aqueous free energy and returns the dominant (lowest-energy) tautomer; the selected protonation backend (MolGpKa by default) then protonates it. sPhysNet-Taut needs the compiled `torch-scatter/sparse` stack, which does not build on native Windows, and ships no explicit licence, so you install it yourself in a dedicated environment. **On Windows, run SMILES2Docking under WSL to use this backend.**
 
 ```bash
 git clone https://github.com/xiaolinpan/sPhysNet-Taut.git
@@ -66,7 +66,7 @@ Then, with the tautomer step enabled and `sphysnet` selected, point SMILES2Docki
 - **sPhysNet-Taut script**: the path to `sPhysNet-Taut/predict_tautomer.py`.
 - **sPhysNet-Taut env python**: the `python` executable of the `tautomer_selection` env (leave blank to use the `python` on your `PATH`).
 
-Under the hood, for each ligand the tool is invoked as `python predict_tautomer.py --smi "<SMILES>" --num_confs 100 --ionization 1 --ph <pH>`; the lowest-energy record's protonated SMILES is used to build the 3D structure. The 100-conformer sampling makes this considerably slower than the other backends, so it suits small, curated series.
+Under the hood, for each ligand the tool is invoked as `python predict_tautomer.py --smi "<SMILES>" --ph <pH> --num_confs 50`; the `tsmi` (neutral) SMILES of the lowest-energy record is taken as the dominant tautomer and passed to the protonation backend. The conformer sampling makes this considerably slower than the other backends, so it suits small, curated series.
 
 ### Parallelization and scalability
 
@@ -103,6 +103,8 @@ structure_generation:
 ```
 
 Refinement is applied after the force-field cascade. If the MOPAC executable fails, the pipeline keeps the force-field geometry and records `mopac_status=failed` in the molecule record and the run report.
+
+MOPAC 23.2.4 (Apache-2.0) is bundled with the Windows and Linux desktop packages, so no separate install is needed there. The macOS package does not bundle MOPAC; install it separately to enable this step on macOS.
 
 ### Graphical interface
 
@@ -266,7 +268,7 @@ O MolGpKa requer `torch` + `torch-geometric` (empacotados nos pacotes desktop; a
 Desativada por padrão. Defina `tautomer.enabled: true` em `config/settings.yaml` (ou use o botão na GUI) para escolher o tautômero dominante antes da protonação.
 
 - **`rdkit`** (embutido): seleciona o tautômero canônico do RDKit. Sem instalação extra.
-- **`sphysnet`** (externo, não empacotado): executa o sPhysNet-Taut, que ranqueia tautômeros pela energia livre aquosa prevista e, no pH alvo, retorna o tautômero dominante **já protonado** — então o backend de protonação é ignorado para ele. O sPhysNet-Taut requer a stack compilada `torch-scatter/sparse` e não possui licença explícita, então você o instala em um ambiente dedicado:
+- **`sphysnet`** (externo, não empacotado, **apenas Linux**): executa o sPhysNet-Taut, que ranqueia tautômeros pela energia livre aquosa prevista e retorna o tautômero dominante (de menor energia); o backend de protonação selecionado (MolGpKa por padrão) então o protona. O sPhysNet-Taut requer a stack compilada `torch-scatter/sparse`, que não compila no Windows nativo, e não possui licença explícita, então você o instala em um ambiente dedicado. **No Windows, execute o SMILES2Docking sob WSL para usar este backend.**
 
 ```bash
 git clone https://github.com/xiaolinpan/sPhysNet-Taut.git
@@ -280,7 +282,7 @@ Depois, com a etapa de tautômeros ativada e `sphysnet` selecionado, indique ao 
 - **Script sPhysNet-Taut**: caminho para `sPhysNet-Taut/predict_tautomer.py`.
 - **Python do env sPhysNet-Taut**: executável `python` do ambiente `tautomer_selection` (deixe vazio para usar o `python` do `PATH`).
 
-Internamente, para cada ligante a ferramenta é chamada como `python predict_tautomer.py --smi "<SMILES>" --num_confs 100 --ionization 1 --ph <pH>`; o SMILES protonado do registro de menor energia é usado para gerar a estrutura 3D. A amostragem de 100 confôrmeros torna isso bem mais lento que os outros backends, adequado a séries pequenas e curadas.
+Internamente, para cada ligante a ferramenta é chamada como `python predict_tautomer.py --smi "<SMILES>" --ph <pH> --num_confs 50`; o SMILES `tsmi` (neutro) do registro de menor energia é tomado como o tautômero dominante e passado ao backend de protonação. A amostragem de confôrmeros torna isso bem mais lento que os outros backends, adequado a séries pequenas e curadas.
 
 ### Paralelização e escalabilidade
 

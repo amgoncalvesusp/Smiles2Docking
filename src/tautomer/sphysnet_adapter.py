@@ -1,24 +1,24 @@
-"""sPhysNet-Taut tautomer + protonation backend (external, subprocess, not bundled).
+"""sPhysNet-Taut tautomer-selection backend (external, subprocess, Linux only).
 
 sPhysNet-Taut (https://github.com/xiaolinpan/sPhysNet-Taut) enumerates tautomers
 and ranks them by predicted aqueous free energy. It depends on the compiled
-PyTorch-Geometric extension stack and ships no explicit licence, so it is not
-bundled with the desktop builds; the user installs it in a dedicated conda
-environment (see the README) and points SMILES2Docking at its
+PyTorch-Geometric extension stack (torch-scatter/sparse/cluster) and ships no
+explicit licence, so it is not bundled; the user installs it in a dedicated
+conda environment (see the README) and points SMILES2Docking at its
 ``predict_tautomer.py`` script.
 
-The script is invoked as a subprocess. With ``--ionization 1 --ph P`` it returns
-the lowest-energy tautomer already protonated at the requested pH, so its output
-requires no further protonation step (``produces_protonated`` is True and the
-pipeline exports the returned SMILES directly).
+The tool is used only to pick the dominant (lowest-energy) tautomer. It is run as
+a subprocess::
 
-Expected stdout is a Python-literal list of records ordered by energy, e.g.::
+    python predict_tautomer.py --smi <SMILES> --ph <pH> --num_confs 50
 
-    [{'tsmi': '...', 'psmis': ['<protonated SMILES>'], 'score': '0.0',
-      'label': 'low_energy'}, ...]
+and the ``tsmi`` field of the first record (the lowest-energy tautomer, neutral)
+is returned. Protonation is then performed downstream by the selected
+protonation backend (MolGpKa by default), exactly as for the RDKit tautomer
+backend. ``produces_protonated`` is therefore False.
 
-The first record is the dominant (lowest-energy) tautomer; its first protonated
-SMILES is selected.
+The compiled dependency stack does not build on native Windows; the backend
+raises a clear error there and recommends running under WSL.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from __future__ import annotations
 import ast
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,13 @@ _INSTALL_HINT = (
     "then set tautomer.sphysnet.python to that environment's python executable."
 )
 
+_WINDOWS_HINT = (
+    "sPhysNet-Taut is not supported on native Windows because its compiled "
+    "PyTorch-Geometric dependencies (torch-scatter/sparse/cluster) do not build "
+    "there. Run SMILES2Docking under WSL to use this backend, or select the "
+    "RDKit tautomer backend instead."
+)
+
 # predict_tautomer.py samples conformers and runs a network; allow a generous
 # per-molecule ceiling so slow machines do not abort a valid run.
 _SUBPROCESS_TIMEOUT_S = 900
@@ -51,15 +59,17 @@ _SUBPROCESS_TIMEOUT_S = 900
 
 @dataclass(slots=True)
 class SPhysNetTautomerizer:
-    """Select the dominant, protonated tautomer via an external sPhysNet-Taut run."""
+    """Select the dominant (lowest-energy) tautomer via an external sPhysNet-Taut run."""
 
     settings: dict[str, Any]
     backend_name: str = field(default="sphysnet", init=False)
-    # Its output is already protonated at the requested pH; the pipeline must not
-    # protonate it again.
-    produces_protonated: bool = field(default=True, init=False)
+    # Returns a neutral tautomer; the protonation backend runs afterwards.
+    produces_protonated: bool = field(default=False, init=False)
 
     def dominant_tautomer(self, smiles: str, access_code: str) -> str:
+        if sys.platform.startswith("win"):
+            raise TautomerError(_WINDOWS_HINT)
+
         cfg = dict(self.settings.get("sphysnet", {}))
         script = str(cfg.get("script_path", "")).strip()
         if not script or not Path(script).is_file():
@@ -68,19 +78,17 @@ class SPhysNetTautomerizer:
                 + _INSTALL_HINT
             )
         python_cmd = _resolve_python(cfg)
-        num_confs = int(cfg.get("num_confs", 100))
+        num_confs = int(cfg.get("num_confs", 50))
         ph = float(self.settings.get("ph", 7.4))
 
         command = python_cmd + [
             script,
             "--smi",
             smiles,
-            "--num_confs",
-            str(num_confs),
-            "--ionization",
-            "1",
             "--ph",
             f"{ph}",
+            "--num_confs",
+            str(num_confs),
         ]
         try:
             proc = subprocess.run(
@@ -120,7 +128,7 @@ def _resolve_python(cfg: dict) -> list[str]:
 
 
 def _parse_dominant(stdout: str, smiles: str, access_code: str) -> str:
-    """Extract the protonated dominant-tautomer SMILES from the script output."""
+    """Return the neutral SMILES of the lowest-energy tautomer (record 0, 'tsmi')."""
     records = None
     for line in reversed(stdout.splitlines()):
         stripped = line.strip()
@@ -139,15 +147,10 @@ def _parse_dominant(stdout: str, smiles: str, access_code: str) -> str:
         )
 
     dominant = records[0]
-    psmis = dominant.get("psmis") if isinstance(dominant, dict) else None
-    if isinstance(psmis, (list, tuple)):
-        chosen = psmis[0] if psmis else None
-    elif isinstance(psmis, str):
-        chosen = psmis
-    else:
-        chosen = None
+    chosen = dominant.get("tsmi") if isinstance(dominant, dict) else None
     if not chosen or Chem.MolFromSmiles(chosen) is None:
         raise TautomerError(
-            f"sPhysNet-Taut returned an unusable SMILES for {access_code!r}: {chosen!r}"
+            f"sPhysNet-Taut returned an unusable tautomer SMILES for "
+            f"{access_code!r}: {chosen!r}"
         )
     return Chem.MolToSmiles(Chem.MolFromSmiles(chosen))

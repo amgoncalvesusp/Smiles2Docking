@@ -35,7 +35,7 @@ tautomer:
   sphysnet:                  # external tool; user installs it (see README)
     script_path: ""          # path to sPhysNet-Taut/predict_tautomer.py
     python: ""               # python executable of the tautomer_selection env (blank = 'python')
-    num_confs: 100           # conformers sampled per molecule
+    num_confs: 50            # conformers sampled per molecule
 
 pm7:
   enabled: false

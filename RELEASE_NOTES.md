@@ -1,33 +1,32 @@
-# SMILES2Docking v1.3.1
+# SMILES2Docking v1.3.0
 
 ## English
 
-Bug-fix and feature release following user testing of v1.3.0.
+This release overhauls protonation and adds an optional tautomer step, in
+response to peer review, and incorporates the fixes found during user testing.
 
-- **Linux fix.** The MolGpKa backend failed on the Linux AppImage with
+### Fixes from user testing
+
+- **Linux MolGpKa fix.** The MolGpKa backend failed on the Linux AppImage with
   `libcrypto.so.3: version 'OPENSSL_3.3.0' not found` because the bundle shipped
   an older OpenSSL for the conda-forge `_ssl` extension. The Linux build now
   bundles the matching `libssl`/`libcrypto`, so MolGpKa loads on Linux.
 - **MolGpKa small-amine fix.** A per-site chemical prior corrects MolGpKa's
   out-of-distribution under-prediction for small, unactivated aliphatic amines
   (methylamine, ethylamine, tert-butylamine, ...), which are now protonated as
-  expected at physiological pH. Activated amines (electron-withdrawing groups)
-  and coupled centres are left to the model.
-- **sPhysNet-Taut tautomer backend.** The optional tautomer step can now call an
-  externally installed sPhysNet-Taut (`predict_tautomer.py`) as a subprocess on
-  Windows and Linux. It ranks tautomers by predicted aqueous free energy and, at
-  the target pH, returns the dominant tautomer already protonated. The GUI
-  exposes the script and environment-python paths; installation steps are in the
-  README. RDKit canonical tautomer selection remains bundled.
-
----
-
-# SMILES2Docking v1.3.0
-
-## English
-
-This release overhauls protonation and adds an optional tautomer step, in
-response to peer review.
+  expected. Activated amines (electron-withdrawing groups) and coupled centres
+  are left to the model.
+- **Formal charge on carbanions.** After deprotonation, a carbon-centred anion
+  (for example the central C-H of a 1,3-diketone) is moved onto its adjacent
+  heteroatom (the enolate oxygen), so the formal charge survives export to MOL2,
+  whose SYBYL atom types cannot encode a charge on carbon.
+- **sPhysNet-Taut tautomer selection (Linux only).** The optional tautomer step
+  runs an externally installed sPhysNet-Taut (`predict_tautomer.py`) as a
+  subprocess, takes the lowest-energy (neutral) tautomer, and hands it to the
+  protonation backend. It is not supported on native Windows; run under WSL. The
+  GUI exposes the script and environment-python paths (see the README).
+- **MOPAC bundled on Linux** as well as on Windows, so PM7 refinement needs no
+  separate install on either platform.
 
 ### Protonation
 
@@ -45,18 +44,19 @@ response to peer review.
 
 ### Tautomers (optional, off by default)
 
-- Optional dominant-tautomer selection before protonation: RDKit enumerates
-  tautomers; the `rdkit` backend picks the canonical tautomer, and the
-  `sphysnet` backend ranks with sPhysNet-Taut. sPhysNet-Taut is an optional
-  extra and is **not** bundled (it needs the compiled torch-scatter/sparse
-  stack and ships no explicit licence).
+- Optional dominant-tautomer selection before protonation. The `rdkit` backend
+  picks RDKit's canonical tautomer; the `sphysnet` backend selects the
+  lowest-energy tautomer with sPhysNet-Taut. Either way, the selected tautomer
+  is then protonated by the protonation backend. sPhysNet-Taut is an optional
+  extra, is **not** bundled (it needs the compiled torch-scatter/sparse stack
+  and ships no explicit licence), and runs on Linux only (use WSL on Windows).
 
 ### Packaging notes
 
 - MolGpKa ships bundled in all desktop packages (CPU PyTorch +
   torch-geometric; the compiled torch-scatter/sparse extensions are not
   required). Installers are correspondingly larger.
-- Windows portable ZIP and installer include MOPAC 23.2.4; Linux/macOS do not
+- Windows and Linux packages include MOPAC 23.2.4; the macOS package does not
   bundle MOPAC. MOPAC refinement stays disabled by default.
 
 ---

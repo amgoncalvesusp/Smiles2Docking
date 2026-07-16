@@ -20,6 +20,7 @@ from src.preprocessing.smiles_cleaner import (
     SmilesCleaner,
 )
 from src.protonation.base import ProtonationError, iter_protonation_states
+from src.protonation.charge_normalization import normalize_anion_placement
 from src.protonation.factory import build_protonator
 from src.protonation.openbabel_adapter import OpenBabelError
 from src.quantum.mopac_adapter import MopacError, MopacOptimizer
@@ -278,6 +279,10 @@ def _prepare_variant(
         protonated_smiles = validator.validate_protonated_smiles(
             protonated_smiles, access_code
         )
+        # Move any carbon-centred anion onto an adjacent heteroatom (e.g. a
+        # 1,3-diketone carbanion to its enolate) so the formal charge survives
+        # export to MOL2, whose SYBYL atom types cannot encode a charge on carbon.
+        protonated_smiles = normalize_anion_placement(protonated_smiles)
         expected_charge = validator.formal_charge_from_smiles(
             protonated_smiles, access_code
         )

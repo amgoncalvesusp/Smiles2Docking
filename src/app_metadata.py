@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 APP_NAME = "SMILES2Docking Desktop"
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.0"
 AUTHOR_NAME = "Adriano Marques Gonçalves"
 AUTHOR_AFFILIATION = "Universidade de Araraquara - UNIARA"
 AUTHOR_EMAIL = "amgoncalves@uniara.edu.br"

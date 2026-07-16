@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 from rdkit import Chem
 
@@ -48,27 +50,32 @@ def test_sphysnet_missing_script_is_actionable() -> None:
     assert "sPhysNet-Taut" in str(excinfo.value)
 
 
-def test_sphysnet_produces_protonated_flag() -> None:
+def test_sphysnet_does_not_protonate() -> None:
+    # sPhysNet-Taut only selects the tautomer; protonation runs downstream.
     taut = build_tautomerizer({"enabled": True, "backend": "sphysnet"})
-    assert getattr(taut, "produces_protonated", False) is True
+    assert getattr(taut, "produces_protonated", True) is False
 
 
-def test_sphysnet_parse_dominant_picks_lowest_energy_protonated() -> None:
+def test_sphysnet_parse_dominant_returns_lowest_energy_neutral_tautomer() -> None:
     from src.tautomer.sphysnet_adapter import _parse_dominant
 
+    # The dominant record is chosen by energy; its neutral 'tsmi' is returned,
+    # not 'psmis' (protonation is done later by MolGpKa).
     stdout = (
         "some log line\n"
-        "[{'tsmi': 'CCC(=O)CC(C)=O', 'psmis': ['CCC(=O)CC(C)=O'], 'score': '0.0', "
-        "'label': 'low_energy'}, {'tsmi': 'CCC(=O)C=C(C)O', 'psmis': "
-        "['CCC(=O)C=C(C)O'], 'score': '0.4', 'label': 'low_energy'}]\n"
+        "[{'tsmi': 'CCC(O)=CC(C)=O', 'psmis': ['[protonated]'], 'score': '0.0', "
+        "'label': 'low_energy'}, {'tsmi': 'CCC(=O)CC(C)=O', 'psmis': "
+        "['CCC(=O)CC(C)=O'], 'score': '0.4', 'label': 'low_energy'}]\n"
     )
     result = _parse_dominant(stdout, "CCC(=O)CC(C)=O", "L")
-    assert _canon(result) == _canon("CCC(=O)CC(C)=O")
+    assert _canon(result) == _canon("CCC(O)=CC(C)=O")
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="sPhysNet-Taut is not supported on native Windows",
+)
 def test_sphysnet_runs_external_script(tmp_path) -> None:
-    import sys
-
     # A stand-in for predict_tautomer.py: prints the sPhysNet-Taut record list.
     fake = tmp_path / "predict_tautomer.py"
     fake.write_text(
@@ -90,3 +97,16 @@ def test_sphysnet_runs_external_script(tmp_path) -> None:
     )
     result = taut.dominant_tautomer("CC(=O)C", "acetone")
     assert _canon(result) == _canon("CC(=O)C")
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("win"),
+    reason="Windows-only guard",
+)
+def test_sphysnet_blocked_on_windows() -> None:
+    taut = build_tautomerizer(
+        {"enabled": True, "backend": "sphysnet", "sphysnet": {"script_path": "x"}}
+    )
+    with pytest.raises(TautomerError) as excinfo:
+        taut.dominant_tautomer("CC(=O)C", "acetone")
+    assert "WSL" in str(excinfo.value)

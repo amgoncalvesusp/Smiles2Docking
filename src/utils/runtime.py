@@ -55,7 +55,9 @@ def bundled_obabel_binary(default_binary: str = "obabel") -> str:
     return default_binary
 
 
-def bundled_mopac_binary(configured_path: str | None = None, default_binary: str = "mopac") -> str:
+def bundled_mopac_binary(
+    configured_path: str | None = None, default_binary: str = "mopac"
+) -> str:
     del default_binary
     candidates: list[Path] = [
         resolve_runtime_path("mopac", "mopac.exe"),
@@ -63,6 +65,11 @@ def bundled_mopac_binary(configured_path: str | None = None, default_binary: str
         resolve_runtime_path("mopac", "bin", "mopac"),
         resolve_runtime_path("mopac", "bin", "mopac.exe"),
         Path(get_mopac_executable_path()),
+        # Linux/macOS: MOPAC is bundled under vendor/mopac/bin (frozen build) or
+        # vendor/mopac-linux/bin (source tree); its RUNPATH ($ORIGIN/../lib) finds
+        # the bundled libmopac/libiomp5.
+        resolve_runtime_path("vendor", "mopac", "bin", "mopac"),
+        resolve_runtime_path("vendor", "mopac-linux", "bin", "mopac"),
         Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
         / "MOPAC"
         / "bin"
@@ -77,8 +84,21 @@ def bundled_mopac_binary(configured_path: str | None = None, default_binary: str
 
     candidate = _first_existing_path(*candidates)
     if candidate is not None:
+        _ensure_executable(candidate)
         return str(candidate)
     return str(candidates[0])
+
+
+def _ensure_executable(path: Path) -> None:
+    """Add the user execute bit on POSIX (PyInstaller data files lose it)."""
+    if os.name == "nt":
+        return
+    try:
+        mode = path.stat().st_mode
+        if not mode & 0o100:
+            path.chmod(mode | 0o111)
+    except OSError:
+        pass
 
 
 def openbabel_runtime_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
@@ -106,12 +126,20 @@ def openbabel_runtime_env(base_env: dict[str, str] | None = None) -> dict[str, s
         env["BABEL_DATADIR"] = str(openbabel_data_dir)
     if openbabel_plugins_dir is not None:
         env["BABEL_LIBDIR"] = str(openbabel_plugins_dir)
-    _prepend_env_path(env, "PATH", *(path for path in (openbabel_runtime_bin_dir, openbabel_library_dir) if path))
+    _prepend_env_path(
+        env,
+        "PATH",
+        *(path for path in (openbabel_runtime_bin_dir, openbabel_library_dir) if path),
+    )
     if os.name != "nt":
         _prepend_env_path(
             env,
             "LD_LIBRARY_PATH",
-            *(path for path in (openbabel_library_dir, openbabel_runtime_bin_dir) if path),
+            *(
+                path
+                for path in (openbabel_library_dir, openbabel_runtime_bin_dir)
+                if path
+            ),
         )
     if openbabel_gui_data_dir.exists():
         env["BABEL_GUI"] = str(openbabel_gui_data_dir)
