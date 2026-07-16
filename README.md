@@ -52,11 +52,20 @@ MolGpKa needs `torch` + `torch-geometric` (bundled in the desktop packages; CPU-
 Off by default. Set `tautomer.enabled: true` in `config/settings.yaml` (or use the GUI toggle) to pick the dominant tautomer before protonation.
 
 - **`rdkit`** (bundled): selects RDKit's canonical tautomer. No extra install.
-- **`sphysnet`** (external, not bundled, **Linux only**): runs sPhysNet-Taut, which ranks tautomers by predicted aqueous free energy and returns the dominant (lowest-energy) tautomer; the selected protonation backend (MolGpKa by default) then protonates it. sPhysNet-Taut needs the compiled `torch-scatter/sparse` stack, which does not build on native Windows, and ships no explicit licence, so you install it yourself in a dedicated environment. **On Windows, run SMILES2Docking under WSL to use this backend.**
+- **`sphysnet`** (external, not bundled, **Linux only**): runs sPhysNet-Taut, which ranks tautomers by predicted aqueous free energy and returns the dominant (lowest-energy) tautomer; the selected protonation backend (MolGpKa by default) then protonates it. sPhysNet-Taut needs the compiled `torch-scatter/sparse` stack, which does not build on native Windows, and ships no explicit licence, so you install it yourself in a dedicated environment. **On Windows, run SMILES2Docking under WSL to use this backend, or install the already enable environment in file `environment_windows_original.yml` present here or in the sPhyNet-Tau original repository issues.**
 
 ```bash
 git clone https://github.com/xiaolinpan/sPhysNet-Taut.git
 conda env create -n tautomer_selection -f sPhysNet-Taut/environment.yaml
+conda activate tautomer_selection
+conda install treelib
+```
+For Windows:
+
+```bash
+git clone https://github.com/xiaolinpan/sPhysNet-Taut.git
+download environment_windows_original.yml
+conda env create -n tautomer_selection -f environment_windows_original.yml
 conda activate tautomer_selection
 conda install treelib
 ```
