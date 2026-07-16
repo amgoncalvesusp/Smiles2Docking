@@ -1,0 +1,64 @@
+name: tautomer_pred
+
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+
+dependencies:
+  # ===========================
+  # Python
+  # ===========================
+  - python=3.10
+  - pip
+
+  # ===========================
+  # PyTorch
+  # ===========================
+  - pytorch=2.2.2
+  - cpuonly
+
+  # ===========================
+  # Scientific stack
+  # ===========================
+  - numpy=1.26.4
+  - scipy
+  - pandas
+  - scikit-learn
+
+  # ===========================
+  # Chemistry
+  # ===========================
+  - ase
+  - openbabel
+
+  # ===========================
+  # Utilities
+  # ===========================
+  - flask
+  - networkx
+  - tqdm
+  - pyyaml
+  - treelib=1.8.0
+
+  # ===========================
+  # pip packages
+  # ===========================
+  - pip:
+      # RDKit (o wheel do pip funcionou corretamente no Windows)
+      - rdkit==2024.3.6
+
+      # PyTorch Geometric
+      - --find-links=https://data.pyg.org/whl/torch-2.2.0+cpu.html
+      - torch-scatter==2.1.2+pt22cpu
+      - torch-sparse==0.6.18+pt22cpu
+      - torch-cluster==1.6.3+pt22cpu
+      - torch-spline-conv==1.2.2+pt22cpu
+      - torch-geometric==2.4.0
+
+      # Machine Learning
+      - torchani==2.2
+
+      # Utilities
+      - googledrivedownloader==0.4
+      - yacs==0.1.8
