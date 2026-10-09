@@ -8,6 +8,8 @@
 
 Desktop application and Python workflow for preparing ligands from `CSV`, `XLS`, and `XLSX` spreadsheets. The pipeline performs structural curation, multi-site protonation at configurable pH, 3D generation with `RDKit ETKDGv3`, force-field geometry optimization (`MMFF94 → MMFF94s → UFF`), optional semi-empirical refinement with `MOPAC PM7`, and exports in `MOL2`, `SDF`, or `PDBQT` format ready for `AutoDock Vina`.
 
+**Paper:** [SMILES2Docking: An Open-Source Desktop Workflow for Ligand Ionization, Stereochemistry-Aware Preparation and Semi-Empirical 3D Refinement](https://doi.org/10.1002/minf.70053) — *Molecular Informatics* 2026, 45, e70053.
+
 ### Authors
 
 - Adriano Marques Gonçalves — Universidade de Araraquara (UNIARA) — amgoncalves@uniara.edu.br
@@ -225,13 +227,19 @@ GPL-2.0-or-later — see [LICENSE](LICENSE).
 
 ### Citation
 
-If you use SMILES2Docking in published research, please cite it using the metadata in [CITATION.cff](CITATION.cff).
+If you use SMILES2Docking in published research, please cite the associated article:
+
+> Ruiz Daniel Andrés Grajales, Negrisoli Bruna Flôres, Periquito Isabel Cristina Conceição, Nascimento-Júnior Nailton Monteiro do, Gonçalves Adriano Marques, SMILES2Docking: An Open-Source Desktop Workflow for Ligand Ionization, Stereochemistry-Aware Preparation and Semi-Empirical 3D Refinement, *Molecular Informatics* 2026, 45, e70053. https://doi.org/10.1002/minf.70053
+
+The software can also be cited with the metadata in [CITATION.cff](CITATION.cff).
 
 ---
 
 ## Português
 
 Aplicativo desktop e workflow Python para preparar ligantes a partir de planilhas `CSV`, `XLS` e `XLSX`. O pipeline executa curadoria estrutural, protonação multi-sítio em pH configurável, geração 3D com `RDKit ETKDGv3`, refinamento por campos de força (`MMFF94 → MMFF94s → UFF`), refinamento semi-empírico opcional `MOPAC PM7` e exporta em `MOL2`, `SDF` ou `PDBQT` pronto para `AutoDock Vina`.
+
+**Artigo:** [SMILES2Docking: An Open-Source Desktop Workflow for Ligand Ionization, Stereochemistry-Aware Preparation and Semi-Empirical 3D Refinement](https://doi.org/10.1002/minf.70053) — *Molecular Informatics* 2026, 45, e70053.
 
 ### Autoria
 
@@ -439,4 +447,8 @@ GPL-2.0-or-later — veja [LICENSE](LICENSE).
 
 ### Citação
 
-Se você usar o SMILES2Docking em pesquisa publicada, por favor cite usando os metadados em [CITATION.cff](CITATION.cff).
+Se você usar o SMILES2Docking em pesquisa publicada, cite o artigo associado:
+
+> Ruiz Daniel Andrés Grajales, Negrisoli Bruna Flôres, Periquito Isabel Cristina Conceição, Nascimento-Júnior Nailton Monteiro do, Gonçalves Adriano Marques, SMILES2Docking: An Open-Source Desktop Workflow for Ligand Ionization, Stereochemistry-Aware Preparation and Semi-Empirical 3D Refinement, *Molecular Informatics* 2026, 45, e70053. https://doi.org/10.1002/minf.70053
+
+O software também pode ser citado com os metadados em [CITATION.cff](CITATION.cff).

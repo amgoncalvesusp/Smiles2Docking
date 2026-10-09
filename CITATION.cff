@@ -28,3 +28,23 @@ keywords:
   - MOPAC
   - PM7
   - RDKit
+preferred-citation:
+  type: article
+  title: "SMILES2Docking: An Open-Source Desktop Workflow for Ligand Ionization, Stereochemistry-Aware Preparation and Semi-Empirical 3D Refinement"
+  authors:
+    - family-names: "Grajales Ruiz"
+      given-names: "Daniel Andrés"
+    - family-names: "Negrisoli"
+      given-names: "Bruna Flôres"
+    - family-names: "Periquito"
+      given-names: "Isabel Cristina Conceição"
+    - family-names: "Monteiro do Nascimento Júnior"
+      given-names: "Nailton"
+    - family-names: "Gonçalves"
+      given-names: "Adriano Marques"
+  journal: "Molecular Informatics"
+  volume: 45
+  article-number: "e70053"
+  year: 2026
+  doi: "10.1002/minf.70053"
+  url: "https://doi.org/10.1002/minf.70053"
